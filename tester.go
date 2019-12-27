@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
-	"redits.oculeus.com/asorokin/tcm/config"
 
 	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
@@ -25,7 +24,7 @@ type tester interface {
 	uploadResultFiles(*gorm.DB)
 }
 
-func runService(cfg *config.Config, db *gorm.DB) {
+func runService(cfg *Config, db *gorm.DB) {
 	log.Info("*************Start service*************")
 
 	ts := []tester{&netSenseAPI{}, &itestAPI{}, &assureAPI{}}
@@ -50,7 +49,6 @@ func runService(cfg *config.Config, db *gorm.DB) {
 		go ts[i].uploadResultFiles(db)
 
 	}
-	// waitForSignal()
 }
 
 func checkTestStatus(db *gorm.DB, api tester, interval int64) {
@@ -138,7 +136,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 	}
 }
 
-func checkOldTests(cfg *config.Config, db *gorm.DB) {
+func checkOldTests(cfg *Config, db *gorm.DB) {
 	for {
 		log.Debug("Start function delete old test info")
 		if err := deleteOldTestInfo(db); err != nil {

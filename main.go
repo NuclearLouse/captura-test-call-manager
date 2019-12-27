@@ -21,9 +21,6 @@ import (
 	"syscall"
 
 	"redits.oculeus.com/asorokin/my_packages/crypter"
-	"redits.oculeus.com/asorokin/tcm/config"
-	"redits.oculeus.com/asorokin/tcm/database"
-
 	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
@@ -43,7 +40,7 @@ func main() {
 	slash := string(os.PathSeparator)
 	appPath := absPath + slash
 
-	cfg, err := config.ReadConfig(appPath+cfgFile, key)
+	cfg, err := readConfig(appPath+cfgFile, key)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
@@ -71,31 +68,31 @@ func main() {
 	if err != nil {
 		log.Fatalf(0, "Сould not decrypt password from database|%v", err)
 	}
-	db, err := database.NewDB(cfg, pass)
+	db, err := newDB(cfg, pass)
 	if err != nil {
 		log.Fatalf(0, "Сould not connect to database|%v", err)
 	}
 	if cfg.ConnectDB.CreateTables {
-		if err := createTables(db.Connect); err != nil {
+		if err := createTables(db); err != nil {
 			os.Exit(1)
 		}
 
-		if err := config.RewriteConfig(appPath+cfgFile, "connectdb", "create_tables", "false"); err != nil {
+		if err := rewriteConfig(appPath+cfgFile, "connectdb", "create_tables", "false"); err != nil {
 			log.Errorf(0, "Could not rewrite config file|%v", err)
 		}
 		fmt.Println("Successfully created tables and overwritten config")
 		os.Exit(0)
 	}
 
-	go checkOldTests(cfg, db.Connect)
+	go checkOldTests(cfg, db)
 
-	go runService(cfg, db.Connect)
+	go runService(cfg, db)
 
 	waitForSignal()
 }
 
 // SetEnvVars sets the environment variables necessary for work
-func setEnvVars(cfg *config.Config, appPath, slash string) error {
+func setEnvVars(cfg *Config, appPath, slash string) error {
 	os.Setenv("SOX", cfg.Decoders.Sox)
 	os.Setenv("FFMPEG", cfg.Decoders.Ffmpeg)
 	os.Setenv("FORMAT_IMG", cfg.Application.FormatIMG)

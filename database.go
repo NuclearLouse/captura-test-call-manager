@@ -1,4 +1,4 @@
-package database
+package main
 
 import (
 	"fmt"
@@ -9,14 +9,9 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
-	"redits.oculeus.com/asorokin/tcm/config"
 )
 
-type DB struct {
-	Connect *gorm.DB
-}
-
-func NewDB(cfg *config.Config, pass string) (*DB, error) {
+func newDB(cfg *Config, pass string) (*gorm.DB, error) {
 	db, err := gorm.Open(os.Getenv("DIALECT_DB"), dbConnString(cfg, pass))
 	if err != nil {
 		return nil, err
@@ -24,11 +19,11 @@ func NewDB(cfg *config.Config, pass string) (*DB, error) {
 	if err := db.DB().Ping(); err != nil {
 		return nil, err
 	}
-	return &DB{db}, nil
+	return db, nil
 }
 
 // DbConnString returns a string to connect to the database
-func dbConnString(cfg *config.Config, pass string) (cns string) {
+func dbConnString(cfg *Config, pass string) (cns string) {
 	var sslmode string
 	switch cfg.ConnectDB.SslMode {
 	case true:
