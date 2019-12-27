@@ -2,11 +2,17 @@ package config
 
 // Config main sections of the config
 type Config struct {
-	Logger    `ini:"logger"`
-	ConnectDB `ini:"connectdb"`
-	Decoders  `ini:"decoders"`
-	Timetable `ini:"timetable"`
+	Application `ini:"application"`
+	Logger      `ini:"logger"`
+	ConnectDB   `ini:"connectdb"`
+	Decoders    `ini:"decoders"`
+	Timetable   `ini:"timetable"`
 	// ErrorMail `ini:"errormail"`
+}
+
+type Application struct {
+	FormatIMG      string `ini:"format_img"`
+	PrepareRequest bool   `ini:"prepare_request"`
 }
 
 // Logger section logger
@@ -46,7 +52,6 @@ type Decoders struct {
 
 // Timetable section for settings intervals
 type Timetable struct {
-	PrepareRequest       bool  `ini:"prepare_request"`
 	IntervalDeleteTests  int64 `ini:"delete_old_tests"`
 	IntervalCheckTests   int64 `ini:"check_tests"`
 	IntervalPrepareTests int64 `ini:"prepare_tests"`

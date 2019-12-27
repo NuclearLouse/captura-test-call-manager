@@ -333,7 +333,7 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 			var nameFile, nameFileBeep, nameFileAnsw string
 			var err error
 			var cWav []byte
-			var cPng []byte
+			var cImg []byte
 			if rows[i].RingDuration == -1 && rows[i].CallDuration == -1 {
 				log.Debug("Not present beep and answer audio file for call_id", rows[i].CallID)
 				if err = insertEmptyFiles(db, rows[i].CallID); err != nil {
@@ -345,7 +345,7 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 				nameFileBeep, fileBeep, err = api.checkPresentAudioFile("beep", rows[i].CallID)
 				switch nameFileBeep {
 				case "html":
-					log.Info("%v for call_id", rows[i].CallID)
+					log.Info("Not present audio file for call_id", rows[i].CallID)
 					if err = insertEmptyFiles(db, rows[i].CallID); err != nil {
 						log.Errorf(503, "Cann't update data row about empty request for call_id %s||%v", rows[i].CallID, err)
 					}
@@ -363,16 +363,25 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 					continue
 				}
 				log.Info("Decode mp3 file to WAV for call_id", rows[i].CallID)
-				cPng, err = waveFormImage(nameFileBeep, 0)
+				cImg, err = waveFormImage(nameFileBeep, 0)
 				if err != nil {
 					log.Errorf(506, "Cann't create waveform PNG image file for call_id %s|%v", rows[i].CallID, err)
 					continue
 				}
 				log.Info("Created image PNG file for call_id", rows[i].CallID)
+
+				listDeleteFiles := []string{
+					downloadDir + nameFileBeep + ".mp3",
+					downloadDir + nameFileBeep + ".wav",
+					downloadDir + nameFileBeep + ".png",
+				}
+				if os.Getenv("FORMAT_IMG") == "bmp" {
+					listDeleteFiles = append(listDeleteFiles, downloadDir+nameFileBeep+".bmp")
+				}
 				callsinfo := CallingSysTestResults{
 					DataLoaded:  true,
 					AudioFile:   cWav,
-					AudioGraph:  cPng,
+					AudioGraph:  cImg,
 					ConnectTime: 0,
 					CallType:    rows[i].CallType,
 				}
@@ -380,12 +389,8 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 					log.Errorf(507, "Cann't insert WAV file into table for system %s call_id %s|%v", api.SystemName, rows[i].CallID, err)
 					continue
 				}
-				log.Info("Insert WAV and PNG file for callid", rows[i].CallID)
-				listDeleteFiles := []string{
-					downloadDir + nameFileBeep + ".mp3",
-					downloadDir + nameFileBeep + ".wav",
-					downloadDir + nameFileBeep + ".png",
-				}
+				log.Info("Insert WAV and IMG file for callid", rows[i].CallID)
+
 				if err = deleteFiles(listDeleteFiles); err != nil {
 					log.Errorf(508, "Cann't delete beep or answer mp3 files for call_ID %s|%v", rows[i].CallID, err)
 				}
@@ -453,16 +458,27 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 					continue
 				}
 				log.Info("Decod mp3 files to WAV for call_id", rows[i].CallID)
-				cPng, err = waveFormImage(nameFile, x)
+				cImg, err = waveFormImage(nameFile, x)
 				if err != nil {
 					log.Errorf(506, "Cann't create waveform PNG image file for call_id %s|%v", rows[i].CallID, err)
 					continue
 				}
 				log.Info("Created image PNG file for call_id", rows[i].CallID)
+
+				listDeleteFiles := []string{
+					downloadDir + nameFile + ".mp3",
+					downloadDir + nameFile + ".wav",
+					downloadDir + nameFile + ".png",
+				}
+
+				if os.Getenv("FORMAT_IMG") == "bmp" {
+					listDeleteFiles = append(listDeleteFiles, downloadDir+nameFile+".bmp")
+				}
+
 				callsinfo := CallingSysTestResults{
 					DataLoaded:  true,
 					AudioFile:   cWav,
-					AudioGraph:  cPng,
+					AudioGraph:  cImg,
 					ConnectTime: connectTime,
 					CallType:    rows[i].CallType,
 				}
@@ -470,12 +486,8 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 					log.Errorf(507, "Cann't insert WAV file into table for call_id %s|%v", rows[i].CallID, err)
 					continue
 				}
-				log.Info("Insert WAV and PNG file for callid", rows[i].CallID)
-				listDeleteFiles := []string{
-					downloadDir + nameFile + ".mp3",
-					downloadDir + nameFile + ".wav",
-					downloadDir + nameFile + ".png",
-				}
+				log.Info("Insert WAV and IMG file for callid", rows[i].CallID)
+
 				if err = deleteFiles(listDeleteFiles); err != nil {
 					log.Errorf(512, "Cann't delete beep or answer mp3 files for call_id %s|%v", rows[i].CallID, err)
 				}

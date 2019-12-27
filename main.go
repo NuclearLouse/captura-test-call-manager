@@ -54,11 +54,6 @@ func main() {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	// Create dir for service log files
-	// if err := createDir(cfg.Logger.LogPath); err != nil {
-	// 	fmt.Println(err.Error())
-	// 	os.Exit(1)
-	// }
 
 	if err := log.Setup(cfg.Logger.LogPath, cfg.Logger.LogLevel, cfg.Logger.Rotate); err != nil {
 		fmt.Println(err.Error())
@@ -103,7 +98,7 @@ func main() {
 func setEnvVars(cfg *config.Config, appPath, slash string) error {
 	os.Setenv("SOX", cfg.Decoders.Sox)
 	os.Setenv("FFMPEG", cfg.Decoders.Ffmpeg)
-	// os.Setenv("ABS_PATH", appPath)
+	os.Setenv("FORMAT_IMG", cfg.Application.FormatIMG)
 	os.Setenv("ABS_PATH_DWL", appPath+tmpDir+slash)
 
 	schema := cfg.ConnectDB.SchemaPG + "."

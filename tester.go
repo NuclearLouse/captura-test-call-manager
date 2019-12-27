@@ -41,7 +41,7 @@ func runService(cfg *config.Config, db *gorm.DB) {
 		}
 		log.Info("Active test system", sysname)
 
-		if cfg.Timetable.PrepareRequest {
+		if cfg.Application.PrepareRequest {
 			go ts[i].prepareRequests(db, cfg.Timetable.IntervalPrepareTests)
 		}
 
@@ -117,15 +117,19 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 		for _, t := range ft {
 			switch t.RequestState {
 			case 1:
-				log.Infof("Initiated new test %s for system %s and test_id:%s", t.TestType, t.SystemName, t.TestingSystemRequestID)
+				log.Infof("Initiated new test %s for system %s", t.TestType, t.SystemName)
 				if err := api.runNewTest(db, t); err != nil {
 					log.Errorf(7, "Could not start a new test %s for system %s|%v", t.TestingSystemRequestID, t.SystemName, err)
+					newTestInfo := PurchOppt{TestingSystemRequestID: "0"}
+					newTestInfo.failedTest(db, t.RequestID, err.Error())
 					continue
 				}
 			case 2:
 				log.Infof("Checking the end of test %s for system %s and test_id:%s", t.TestType, t.SystemName, t.TestingSystemRequestID)
 				if err := api.checkTestComplete(db, t); err != nil {
 					log.Errorf(8, "Could not check status for test %s system %s|%v", t.TestingSystemRequestID, t.SystemName, err)
+					newTestInfo := PurchOppt{}
+					newTestInfo.failedTest(db, t.RequestID, err.Error())
 					continue
 				}
 			}
@@ -138,7 +142,6 @@ func checkOldTests(cfg *config.Config, db *gorm.DB) {
 	for {
 		log.Debug("Start function delete old test info")
 		if err := deleteOldTestInfo(db); err != nil {
-			// if err := db.Delete(CallingSysTestResults{}).Error; err != nil {
 			log.Errorf(2, "Error delete old test info|%v", err)
 		}
 		log.Debugf("Next delete old tests info after %d hours", cfg.Timetable.IntervalDeleteTests)

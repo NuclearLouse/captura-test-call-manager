@@ -202,7 +202,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	switch nit.TestType.name() {
 	case "cli":
 		ttn = "CLI"
-	case "voise":
+	case "voice":
 		ttn = "Voice%20Quality%20Basic"
 	case "fas":
 		ttn = "FAS"
@@ -215,7 +215,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 			api.NewTestGet,
 			ttn,
 			nit.TestSysRouteID,
-			nit.BNumber)
+			strings.TrimPrefix(nit.BNumber, "+"))
 	default:
 		// TODO: фэйлить если nit.TestCalls==0 выставить tested_until дефолтным и request state -1, в комментарий занести ошибку.
 		request = fmt.Sprintf("%sTestTypeName=%s&RouteID=%d&DestinationID=%d&NoOfExecutions=%d",
@@ -246,18 +246,11 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	log.Debug(string(body))
 	if newTests.TestBatchID == 0 {
 		err := errors.New("no return TestingSystemRequestID")
-		newTestInfo := PurchOppt{
-			TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
-			RequestState:           -1,
-			TestedUntil:            time.Now(),
-			TestComment:            string(body)}
-		if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
-			return err
-		}
+		testinfo := PurchOppt{TestingSystemRequestID: "0"}
+		testinfo.failedTest(db, nit.RequestID, string(body))
 		return err
-
 	}
-	// ! при нескольких Б-номерах в одном тесте тут будет не правильная вставка
+	// ! при нескольких Б-номерах в одном тесте тут будет неправильная вставка
 	newTestInfo := PurchOppt{
 		TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
 		RequestState:           2}
@@ -395,7 +388,7 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, ctr CallingSysTestResult
 		if partAudio != "" {
 			content, err := hex.DecodeString(partAudio)
 			if err != nil {
-				log.Errorf(605, "Error decode field APartyAudio for call_id %s|%v", result.QueryResult1[i].CallResultID, err)
+				log.Errorf(605, "Error decode field APartyAudio for call_id %d|%v", result.QueryResult1[i].CallResultID, err)
 				continue
 			}
 
@@ -416,17 +409,28 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, ctr CallingSysTestResult
 				continue
 			}
 
-			cPng, err := waveFormImage(name, 0)
+			cImg, err := waveFormImage(name, 0)
 			if err != nil {
 				log.Errorf(609, "Cann't create waveform PNG image file for call_id %s|%v", name, err)
 				continue
 			}
 			log.Info("Created image PNG file for call_id", name)
 
+			listDeleteFiles := []string{
+				dwnlDir + name + ".amr.gz",
+				dwnlDir + name + ".amr",
+				dwnlDir + name + ".wav",
+				dwnlDir + name + ".png",
+			}
+
+			if os.Getenv("FORMAT_IMG") == "bmp" {
+				listDeleteFiles = append(listDeleteFiles, dwnlDir+name+".bmp")
+			}
+
 			callsinfo := CallingSysTestResults{
 				DataLoaded:  true,
 				AudioFile:   cWav,
-				AudioGraph:  cPng,
+				AudioGraph:  cImg,
 				ConnectTime: result.QueryResult1[i].PGAD,
 				CallType:    result.QueryResult1[i].TestType,
 			}
@@ -434,13 +438,8 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, ctr CallingSysTestResult
 				log.Errorf(610, "Cann't insert WAV file into table for system %s call_id %s|%v", api.SystemName, name, err)
 				continue
 			}
-			log.Info("Insert WAV and PNG file for callid", name)
-			listDeleteFiles := []string{
-				dwnlDir + name + ".amr.gz",
-				dwnlDir + name + ".amr",
-				dwnlDir + name + ".wav",
-				dwnlDir + name + ".png",
-			}
+			log.Info("Insert WAV and IMG file for callid", name)
+
 			if err = deleteFiles(listDeleteFiles); err != nil {
 				log.Errorf(611, "Cann't delete some files for call_id %s|%v", name, err)
 			}

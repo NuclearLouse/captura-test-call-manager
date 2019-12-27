@@ -6,6 +6,8 @@ package main
 
 import (
 	"fmt"
+	"image"
+	_ "image/png"
 	"io"
 	"io/ioutil"
 	"os"
@@ -14,7 +16,9 @@ import (
 	"strings"
 	"time"
 
+	// "github.com/disintegration/imaging"
 	"github.com/fogleman/gg"
+	"golang.org/x/image/bmp"
 
 	"github.com/jinzhu/gorm"
 	log "redits.oculeus.com/asorokin/my_packages/logging"
@@ -117,7 +121,17 @@ func waveFormImage(nameFile string, x float64) ([]byte, error) {
 		}
 		log.Debugf("Successefuly draw vertical line for file %s.wav", nameFile)
 	}
-	content, err := ioutil.ReadFile(pathPngFile)
+	pathImgFile := pathPngFile
+
+	if os.Getenv("FORMAT_IMG") == "bmp" {
+		pathBmpFile := os.Getenv("ABS_PATH_DWL") + nameFile + ".bmp"
+		if err := encodePNGtoBMP(pathPngFile, pathBmpFile); err != nil {
+			return nil, err
+		}
+		pathImgFile = pathBmpFile
+
+	}
+	content, err := ioutil.ReadFile(pathImgFile)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +152,32 @@ func drawVLine(pathPngFile string, x float64) error {
 
 	dl.DrawImage(img, 0, 0)
 	dl.SavePNG(pathPngFile)
+	return nil
+}
+
+func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
+	filePNG, err := os.Open(pathPngFile)
+	if err != nil {
+		return err
+	}
+	defer filePNG.Close()
+
+	img, _, err := image.Decode(filePNG)
+	if err != nil {
+		return err
+	}
+
+	// imgResize := imaging.Resize(img, 500, 100, imaging.Box)
+
+	fileBMP, err := os.Create(pathBmpFile)
+	if err != nil {
+		return err
+	}
+	defer fileBMP.Close()
+
+	if err := bmp.Encode(fileBMP, img); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -177,7 +217,6 @@ func updateAPI(db *gorm.DB, model interface{}, sys CallingSysSettings) *gorm.DB 
 	return db.Model(model).Updates(map[string]interface{}{"url": sys.Address, "user": sys.AuthName, "pass": sys.AuthKey}).Take(model)
 }
 
-// TODO: возможно потом сюда лучше будет передавать уже подготовленную структуру, а не набор ее полей
 func updateCallsInfo(db *gorm.DB, callID string, callsinfo CallingSysTestResults) error {
 	if err := db.Model(&callsinfo).Where(`"CallID"=?`, callID).Updates(callsinfo).Error; err != nil {
 		return err
@@ -228,4 +267,11 @@ func callsStatistics(db *gorm.DB, testid string) PurchOppt {
 		TestMinutes: sumcalls / 60,
 	}
 	return stat
+}
+
+func (po PurchOppt) failedTest(db *gorm.DB, request int, comment string) {
+	po.RequestState = -1
+	po.TestedUntil = time.Now()
+	po.TestComment = comment
+	db.Model(&po).Where(`"RequestID"=?`, request).Update(po)
 }

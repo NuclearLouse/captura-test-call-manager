@@ -1,29 +1,34 @@
+[application]
+format_img       = bmp
+prepare_request  = false
+
 [logger]
-log_path       = 
-log_level      = info
-short_lvl      = true
-max_size       = 1
-max_age        = 1
-max_backup     = 3
-compress       = true
-localtime      = true
-rotate         = daily
+log_path   = 
+log_level  = info
+short_lvl  = true
+max_size   = 1
+max_age    = 1
+max_backup = 3
+compress   = true
+localtime  = true
+rotate     = daily
 
 [connectdb]
-db_dialect          = postgres
-host                = localhost
-port                = 5432
-database            = my_db
-schema_pg           = my_schema
-user                = pg_user
-password            = my_password
-ssl_mode            = false
-create_tables       = false
-sqlite_path         = #absolute path to sqlite .db
+db_dialect    = postgres
+host          = localhost
+port          = 5432
+database      = my_db
+schema_pg     = my_schema
+user          = pg_user
+password      = my_password
+ssl_mode      = false
+create_tables = false
+sqlite_path   = #absolute path to sqlite .db
+crypt_pass    =
 
 [decoders]
-ffmpeg     = c:\Users\ffmpeg-20190928\bin\ffmpeg.exe
-sox        = c:\Users\sox-14-4-2\sox.exe
+ffmpeg = c:\Users\ffmpeg-20190928\bin\ffmpeg.exe
+sox    = c:\Users\sox-14-4-2\sox.exe
 ## example abs path for Windows OS
 
 [timetable]

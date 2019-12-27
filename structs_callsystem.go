@@ -10,23 +10,6 @@ import (
 	"time"
 )
 
-//! Эта структура уже не нужна, пока оставлена для имен полей
-type NewInitTest struct {
-	RequestID        int
-	CallType         string
-	SystemID         int
-	SystemName       string
-	ProfileID        string // для itest
-	Prefix           string // для itest
-	SupplierID       string // для itest
-	SupOrPref        string // для itest
-	CountryID        string // для itest
-	BreakoutID       string // для itest
-	RouteID          int    // TODO: для Assure
-	DestinationID    int    // TODO: для Assure
-	NumberExecutions int    // TODO: для Assure, необходимо добавить в таблицы Captura
-}
-
 func (CallingSysSettings) TableName() string {
 	return os.Getenv("SCHEMA_PG") + "CallingSys_Settings"
 }
