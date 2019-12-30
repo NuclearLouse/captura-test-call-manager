@@ -270,6 +270,7 @@ type batchResult struct {
 	BTestNode                 string  `json:"B TestNode"`
 	BAlertTime                float64 `json:"B Alert Time"`
 	BConnectTime              float64 `json:"B Connect Time"`
+	BNumber                   string  `json:"B Number"`
 	CallBatchItemID           int
 	CallBatchStatusTypeID     int
 	CallBatchExceptionMessage string
@@ -286,67 +287,56 @@ type batchResult struct {
 	DeliveryDetails           string  `json:"Delivery Details"`
 	DelTimeLimit              string  `json:"Del. Time Limit"` //time.Time
 	DeliveryUpdateDelay       float64
+	DelRepTime                string `json:"Del. Rep. Time"` //time.Time
 	DCSCharacterSetR          string
 	Duplicates                int
 	ErrorMsg                  string `json:"Error Msg."`
 	ExceptionMsg              string `json:"Exception Msg."`
-	UITestStatusID            int
-	UITestStatusDisplay       string
-	Modified                  string //time.Time
 	HasAudio                  int
 	HasSecondAudio            int
-	TestScenarioRuntimeUID    int
-	Result                    string
-	Route                     string
-	TestStartTime             string  `json:"Test Start Time"` //time.Time
+	IP                        float64
+	Modified                  string //time.Time
+	MessageID                 int    `json:"Message Id"`
+	NoSegS                    int    `json:"No of Seg (S)"`
+	NoSegR                    int    `json:"No of Seg (R)"`
+	Network                   string
+	OAOK                      bool    `json:"OA OK"`
+	OAS                       string  `json:"OA (S)"`
+	OAR                       string  `json:"OA (R)"`
 	MOSA                      float64 `json:"MOS A"`
+	PDUR                      string  `json:"PDU (R)"`
+	PoPIDR                    int
+	PoPIDS                    int
 	PGRD                      float64
 	PGAD                      float64
-	SNR                       float64 `json:"SNR (dB)"`
-	SpeechLevel               float64 `json:"Speech Level (dB)"`
-	VoiceQualityProblem       string  `json:"Voice Quality Problem"`
+	Result                    string
+	Route                     string
+	ResultTrace               string  `json:"Result Trace"`
+	ResultRecTime             string  `json:"Result Rec. Time"` //time.Time
+	RecTime                   string  `json:"Rec. Time"`        //time.Time
 	ReleaseCause              string  `json:"Release Cause"`
 	ReleaseLocation           string  `json:"Release Location"`
+	SNR                       float64 `json:"SNR (dB)"`
+	SpeechLevel               float64 `json:"Speech Level (dB)"`
 	SpeechFirstDetectedTime   string  `json:"Speech First Detected Time"` //time.Time
 	SpeechLastDetectedTime    string  `json:"Speech Last Detected Time"`  //time.Time
-	IP                        float64
 	SMSResultID               int
-	Network                   string
-	TestNode                  string `json:"Test Node"`
-	BNumber                   string `json:"B Number"`
 	Supplier                  string
 	SentTime                  string `json:"Sent Time"`
-	OAOK                      bool   `json:"OA OK"`
 	STonOK                    bool   `json:"S. TON OK"`
 	Smsc                      string
 	SmscOwner                 string `json:"SMSC Owner"`
-	OAS                       string `json:"OA (S)"`
-	OAR                       string `json:"OA (R)"`
 	STonS                     string `json:"S. TON (S)"`
 	STonR                     string `json:"S. TON (R)"`
 	SNumPlanS                 string `json:"S. Num. Plan (S)"`
 	SNumPlanR                 string `json:"S. Num. Plan (R)"`
-	TextS                     string `json:"Text (S)"`
-	TextR                     string `json:"Text (R)"`
-	NoSegS                    int    `json:"No of Seg (S)"`
-	NoSegR                    int    `json:"No of Seg (R)"`
-	RecTime                   string `json:"Rec. Time"`      //time.Time
-	SMSCRecTime               string `json:"SMSC Rec. Time"` //time.Time
-	DelRepTime                string `json:"Del. Rep. Time"` //time.Time
-	MessageID                 int    `json:"Message Id"`
-	Template                  string
-	SMS                       string
-	ResultRecTime             string `json:"Result Rec. Time"` //time.Time
-	UDHS                      string `json:"UDH (S)"`
-	UDHR                      string `json:"UDH (R)"`
-	PDUR                      string `json:"PDU (R)"`
-	PoPIDR                    int
-	ResultTrace               string `json:"Result Trace"`
 	SMSID                     string
 	SMSIDExpireTime           string //time.Time
 	SMSTemplateID             int
 	SMSTemplateModified       string
+	SMSCRecTime               string `json:"SMSC Rec. Time"` //time.Time
 	SubmitSMSResponseDelay    float64
+	SMS                       string
 	SMSReceiveDelay           float64
 	SMSResultReceiveID        int
 	SMSResultIDR              int
@@ -354,32 +344,19 @@ type batchResult struct {
 	SegmentDuplicate          int
 	SMSResultSendID           int
 	SMSResultIDS              int
-	PoPIDS                    int
 	SubmitSMSResponseTime     string //time.Time
 	StatusUpdateCode          string
 	StatusUpdateTime          string //time.Time
+	TestScenarioRuntimeUID    int
+	TestStartTime             string `json:"Test Start Time"` //time.Time
+	TestNode                  string `json:"Test Node"`
 	TestType                  string `json:"Test Type"`
+	TextS                     string `json:"Text (S)"`
+	TextR                     string `json:"Text (R)"`
+	Template                  string
+	UITestStatusID            int
+	UITestStatusDisplay       string
+	UDHS                      string `json:"UDH (S)"`
+	UDHR                      string `json:"UDH (R)"`
+	VoiceQualityProblem       string `json:"Voice Quality Problem"`
 }
-
-// type TestSet struct {
-// 	"PoPName": "<StringValue>",
-// "NoOfExecutions": <IntegerValue>,
-// "Priority": <IntegerValue>,
-// "TestSetItems": [
-// {
-// "TestTypeName": "<StringValue>",
-// "RouteID": <IntegerValue>,
-// "RouteExtID": <IntegerValue>,
-// "SMSRouteID": <IntegerValue>,
-// "SMSRouteExtID": <IntegerValue>,
-// "SMSTemplateName": "<StringValue>",
-// "SMSTemplateModifications": <JSON Object>,
-// "ATestNodeUID": <StringValue>,
-// "APLMN": <StringValue>,
-// "BTestNodeUID": <StringValue>,
-// "DestinationID": <IntegerValue>,
-// "DestinationExtID": <IntegerValue>,
-// "BPLMN": <StringValue>,
-// "AllTestNodes": <BooleanValue>,
-// "PhoneNumber": "<StringValue>"
-// }
