@@ -2,8 +2,8 @@
 * 00001 - reserve
 * 00002 - Error delete old test info
 * 00003 - Cann't update API settings for the system _sysname
-* 00004 - Could not draw a horizontal line on the wave image for file _namefile.png
-* 00005 - Could not draw a vertical line on the wave image for file _namefile.png
+* 00004 - reserve
+* 00005 - reserve
 * 00006 - Could not select tests to check status for system _sysname
 * 00007 - Could not start a new test _testid for system _sysname
 * 00008 - Could not check status for test _testid system _sysname

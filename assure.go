@@ -404,14 +404,19 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, ctr CallingSysTestResult
 			}
 			var cWav []byte
 			cWav, err = decodeToWAV(name, "amr")
-			if err != nil {
+			if err != nil || len(cWav) == 0 {
 				log.Errorf(608, "Error decode to wav file for call_id %s|%v", name, err)
+				cWav = []byte("C&V:Cann't decode to wav file")
+				// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
 				continue
 			}
+			log.Info("Created WAV file for call_id", name)
 
 			cImg, err := waveFormImage(name, 0)
-			if err != nil {
-				log.Errorf(609, "Cann't create waveform PNG image file for call_id %s|%v", name, err)
+			if err != nil || len(cImg) == 0 {
+				log.Errorf(609, "Cann't create waveform image file for call_id %s|%v", name, err)
+				cImg = []byte("C&V:Cann't create waveform image file")
+				// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
 				continue
 			}
 			log.Info("Created image PNG file for call_id", name)

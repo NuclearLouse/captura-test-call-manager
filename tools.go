@@ -105,22 +105,31 @@ func waveFormImage(nameFile string, x float64) ([]byte, error) {
 	}
 	img, err := gg.LoadPNG(pathPngFile)
 	if err != nil {
-		log.Errorf(4, "Could not draw a horizontal line on the wave image for file %s.png|%v", nameFile, err)
+		//TODO: излишний и неверный лог ?
+		//TODO: тут надо писать о невозможности открытия файла для совершения графических манипуляций
+		// log.Errorf(4, "Could not draw a horizontal line on the wave image for file %s.png|%v", nameFile, err)
+		return nil, err
 	}
+	//TODO: найти возможность рисования горизонтальной линии прямо в декодере?
 	dl := gg.NewContext(600, 400)
-	dl.Clear()
 	dl.SetRGB255(0, 0, 0)
 	dl.DrawRectangle(0, 199, 600, 2)
 	dl.Fill()
+	//TODO: найти возможность белой заливки фона прямо в декодере?
+	dl.SetRGB255(255, 255, 255)
+	dl.DrawRectangle(0, 0, 600, 400)
+	dl.Fill()
+
+	// drawing a vertical red line indicating the beginning of the answer
+	if strings.HasPrefix(nameFile, "out_") {
+		dl.SetRGB255(255, 0, 0)
+		dl.DrawRectangle(x, 0, 4, 400)
+		dl.Fill()
+	}
+
 	dl.DrawImage(img, 0, 0)
 	dl.SavePNG(pathPngFile)
 
-	if strings.HasPrefix(nameFile, "out_") {
-		if err := drawVLine(pathPngFile, x); err != nil {
-			log.Errorf(5, "Could not draw a vertical line on the wave image for file %s.png|%v", nameFile, err)
-		}
-		log.Debugf("Successefuly draw vertical line for file %s.wav", nameFile)
-	}
 	pathImgFile := pathPngFile
 
 	if os.Getenv("FORMAT_IMG") == "bmp" {
@@ -136,23 +145,6 @@ func waveFormImage(nameFile string, x float64) ([]byte, error) {
 		return nil, err
 	}
 	return content, nil
-}
-
-func drawVLine(pathPngFile string, x float64) error {
-	img, err := gg.LoadPNG(pathPngFile)
-	if err != nil {
-		return err
-	}
-	dl := gg.NewContext(600, 400)
-	dl.Clear()
-
-	dl.SetRGB255(255, 0, 0)
-	dl.DrawRectangle(x, 0, 4, 400)
-	dl.Fill()
-
-	dl.DrawImage(img, 0, 0)
-	dl.SavePNG(pathPngFile)
-	return nil
 }
 
 func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
