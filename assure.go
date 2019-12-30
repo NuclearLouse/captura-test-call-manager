@@ -462,6 +462,11 @@ func (assureAPI) insertCallsInfo(db *gorm.DB, tr TestBatchResults, lt foundTest)
 	for i := range tr.TestBatchResult1 {
 		res := tr.TestBatchResult1[i]
 		callstart := tr.ParseTime(res.TestStartTime)
+		// тут надо продумать получение полей с комментариями по Result, CLI и т.д.
+		r := res.Result
+		if len(r) > 30 {
+			r = r[:30]
+		}
 		callinfo := CallingSysTestResults{
 			CallID:                   strconv.Itoa(res.CallResultID),
 			CallListID:               lt.TestingSystemRequestID,
@@ -477,7 +482,7 @@ func (assureAPI) insertCallsInfo(db *gorm.DB, tr TestBatchResults, lt foundTest)
 			Route:                    res.Route,
 			Status:                   res.ReleaseCause,
 			CliDetectedCallingNumber: res.CLIDelivered,
-			CliResult:                res.Result,
+			CliResult:                r,
 			VoiceQualityMos:          res.MOSA,
 			VoiceQualitySNR:          int(res.SNR),
 			VoiceQualitySpeechLevel:  int(res.SpeechLevel),
