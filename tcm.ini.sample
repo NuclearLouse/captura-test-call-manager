@@ -3,14 +3,8 @@ format_img       = bmp
 prepare_request  = false
 
 [logger]
-log_path   = 
+log_path   = TestCallsSrvc.log
 log_level  = info
-short_lvl  = true
-max_size   = 1
-max_age    = 1
-max_backup = 3
-compress   = true
-localtime  = true
 rotate     = daily
 
 [connectdb]
