@@ -7,7 +7,9 @@ package main
 import (
 	"fmt"
 	"image"
-	_ "image/png"
+	"image/color"
+	"image/draw"
+	"image/png"
 	"io"
 	"io/ioutil"
 	"os"
@@ -16,8 +18,6 @@ import (
 	"strings"
 	"time"
 
-	// "github.com/disintegration/imaging"
-	"github.com/fogleman/gg"
 	"golang.org/x/image/bmp"
 
 	"github.com/jinzhu/gorm"
@@ -94,41 +94,21 @@ func execCommand(com string) ([]byte, error) {
 	return out, nil
 }
 
-func waveFormImage(nameFile string, x float64) ([]byte, error) {
+func waveFormImage(nameFile string, x int) ([]byte, error) {
 	pathWavFile := os.Getenv("ABS_PATH_DWL") + nameFile + ".wav"
 	pathPngFile := os.Getenv("ABS_PATH_DWL") + nameFile + ".png"
-	com := fmt.Sprintf("%s -i %s -lavfi showwavespic=split_channels=1:s=600x400:colors=000000 %s",
-		os.Getenv("FFMPEG"), pathWavFile, pathPngFile)
+	com := fmt.Sprintln(fmt.Sprintf(os.Getenv("WAV_FORM_IMG"), pathWavFile, pathPngFile))
 	_, err := execCommand(com)
 	if err != nil {
 		return nil, err
 	}
-	img, err := gg.LoadPNG(pathPngFile)
-	if err != nil {
-		//TODO: излишний и неверный лог ?
-		//TODO: тут надо писать о невозможности открытия файла для совершения графических манипуляций
-		// log.Errorf(4, "Could not draw a horizontal line on the wave image for file %s.png|%v", nameFile, err)
-		return nil, err
-	}
-	//TODO: найти возможность рисования горизонтальной линии прямо в декодере?
-	dl := gg.NewContext(600, 400)
-	dl.SetRGB255(0, 0, 0)
-	dl.DrawRectangle(0, 199, 600, 2)
-	dl.Fill()
-	//TODO: найти возможность белой заливки фона прямо в декодере?
-	dl.SetRGB255(255, 255, 255)
-	dl.DrawRectangle(0, 0, 600, 400)
-	dl.Fill()
 
 	// drawing a vertical red line indicating the beginning of the answer
 	if strings.HasPrefix(nameFile, "out_") {
-		dl.SetRGB255(255, 0, 0)
-		dl.DrawRectangle(x, 0, 4, 400)
-		dl.Fill()
+		if err := drawVLine(pathPngFile, x); err != nil {
+			return nil, err
+		}
 	}
-
-	dl.DrawImage(img, 0, 0)
-	dl.SavePNG(pathPngFile)
 
 	pathImgFile := pathPngFile
 
@@ -147,6 +127,33 @@ func waveFormImage(nameFile string, x float64) ([]byte, error) {
 	return content, nil
 }
 
+func drawVLine(pathPngFile string, x int) error {
+	filePNG, err := os.Open(pathPngFile)
+	if err != nil {
+		return err
+	}
+	img, err := png.Decode(filePNG)
+	if err != nil {
+		return err
+	}
+	filePNG.Close()
+	dstImg := image.NewRGBA(img.Bounds())
+	draw.Draw(dstImg, img.Bounds(), img, image.ZP, draw.Src)
+
+	vline := image.Rect(x, 0, x+2, 100)
+	draw.Draw(dstImg, vline, &image.Uniform{color.RGBA{255, 0, 0, 255}}, image.ZP, draw.Src)
+
+	newImg, err := os.Create(pathPngFile)
+	if err != nil {
+		return err
+	}
+	defer newImg.Close()
+	if err := png.Encode(newImg, dstImg); err != nil {
+		return err
+	}
+	return nil
+}
+
 func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
 	filePNG, err := os.Open(pathPngFile)
 	if err != nil {
@@ -158,8 +165,6 @@ func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
 	if err != nil {
 		return err
 	}
-
-	// imgResize := imaging.Resize(img, 500, 100, imaging.Box)
 
 	fileBMP, err := os.Create(pathBmpFile)
 	if err != nil {
@@ -176,7 +181,8 @@ func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
 func decodeToWAV(nameFile, codec string) ([]byte, error) {
 	file := os.Getenv("ABS_PATH_DWL") + nameFile + "." + codec
 	fileWAV := os.Getenv("ABS_PATH_DWL") + nameFile + ".wav"
-	com := fmt.Sprintf("%s -y -i %s %s", os.Getenv("FFMPEG"), file, fileWAV)
+	com := fmt.Sprintln(fmt.Sprintf(os.Getenv("DECODE_WAV"), file, fileWAV))
+	// com := fmt.Sprintf("%s -y -i %s %s", os.Getenv("FFMPEG"), file, fileWAV)
 	_, err := execCommand(com)
 	// log.Debug(com)
 	if err != nil {

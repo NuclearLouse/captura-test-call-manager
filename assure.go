@@ -473,6 +473,7 @@ func (assureAPI) insertCallsInfo(db *gorm.DB, tr TestBatchResults, lt foundTest)
 			r = r[:30]
 		}
 		callinfo := CallingSysTestResults{
+			AudioURL:                 strconv.Itoa(res.CallResultID),
 			CallID:                   strconv.Itoa(res.CallResultID),
 			CallListID:               lt.TestingSystemRequestID,
 			TestSystem:               lt.SystemID,

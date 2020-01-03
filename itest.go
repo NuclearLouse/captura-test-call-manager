@@ -16,7 +16,6 @@ import (
 	"net/url"
 	"os"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -67,6 +66,7 @@ func (api itestAPI) runNewTest(db *gorm.DB, fnt foundTest) error {
 	// if err := decoder.Decode(&testinit); err != nil {
 	// 	return err
 	// }
+	//! Обязательно тут вставлять в CallingSys_TestResult поле AudioURL=testinit.Test.ShareURL
 	// newTestInfo := PurchOppt{
 	// 	TestingSystemRequestID: testinit.Test.TestID,
 	// 	TestComment:            testinit.Test.ShareURL,
@@ -421,7 +421,8 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 				if fileAnsw {
 					log.Info("Download mp3 answ file for call_id", rows[i].CallID)
 				}
-				var connectTime, x float64
+				var connectTime float64
+				var x int
 				switch {
 				case fileBeep && fileAnsw:
 					connectTime, x, err = calcCoordinate(nameFileBeep, nameFileAnsw)
@@ -593,13 +594,11 @@ func createFile(res *http.Response, nameFile string) (bool, error) {
 }
 
 func concatMP3files(fileBeep, fileAnsw string) (string, error) {
-	dwnlDir := os.Getenv("ABS_PATH_DWL")
-	pathBeep := dwnlDir + fileBeep + ".mp3"
-	pathAnsw := dwnlDir + fileAnsw + ".mp3"
-	pathOut := dwnlDir + "out_" + fileAnsw + ".mp3"
-	// com := fmt.Sprintf(`%s -i "concat:%s|%s" -c copy %s`, os.Getenv("FFMPEG"),pathBeep, pathAnsw, pathOut)
-	com := fmt.Sprintf("%s %s %s %s", os.Getenv("SOX"), pathBeep, pathAnsw, pathOut)
-	// log.Debug(com)
+	pathBeep := os.Getenv("ABS_PATH_DWL") + fileBeep + ".mp3"
+	pathAnsw := os.Getenv("ABS_PATH_DWL") + fileAnsw + ".mp3"
+	pathOut := os.Getenv("ABS_PATH_DWL") + "out_" + fileAnsw + ".mp3"
+
+	com := fmt.Sprintln(fmt.Sprintf(os.Getenv("CONCAT_MP3"), pathBeep, pathAnsw, pathOut))
 	_, err := execCommand(com)
 	if err != nil {
 		return "", err
@@ -607,30 +606,54 @@ func concatMP3files(fileBeep, fileAnsw string) (string, error) {
 	return "out_" + fileAnsw, nil
 }
 
-func calcCoordinate(fileBeep, fileAnsw string) (float64, float64, error) {
-	var reg string
-	switch runtime.GOOS {
-	case "linux", "darwin", "freebsd":
-		reg = "grep"
-	case "windows":
-		reg = "findstr"
-	}
+func calcCoordinate(fileBeep, fileAnsw string) (float64, int, error) {
 	var files [2]string
-	dwnlDir := os.Getenv("ABS_PATH_DWL")
-	files[0] = dwnlDir + fileBeep + ".mp3"
-	files[1] = dwnlDir + fileAnsw + ".mp3"
-	var duration [2]float64
+	files[0] = os.Getenv("ABS_PATH_DWL") + fileBeep + ".mp3"
+	files[1] = os.Getenv("ABS_PATH_DWL") + fileAnsw + ".mp3"
+	var duration [2]int
 	for i := 0; i < len(files); i++ {
-		com := fmt.Sprintf("%s %s -n stat 2>&1 | %s Length", os.Getenv("SOX"), files[i], reg)
+		com := fmt.Sprintln(fmt.Sprintf(os.Getenv("DURATION"), files[i]))
 		out, err := execCommand(com)
 		if err != nil {
 			return 0, 0, err
 		}
-		str := string(out)
-		strSplit := strings.Split(str, "Length (seconds):")
-		strTrim := strings.Trim(strSplit[1], " \r\n")
-		sec, err := strconv.ParseFloat(strTrim, 64)
-		duration[i] = sec
+		strOut := strings.Split(string(out), ",")
+		strTime := strings.Split(strOut[0], "Duration:")
+		t, err := parseTime(strings.TrimSpace(strTime[1]))
+		if err != nil {
+			return 0, 0, err
+		}
+		duration[i] = 60*t.Minute() + t.Second()
 	}
-	return duration[0], 600 * duration[0] / (duration[0] + duration[1]), nil
+	return float64(duration[0]), 500 * duration[0] / (duration[0] + duration[1]), nil
 }
+
+func parseTime(strTime string) (time.Time, error) {
+	st := strings.Split(strTime, ".")
+	t, err := time.Parse("15:04:05", st[0])
+	if err != nil {
+		return t, err
+	}
+	return t, nil
+}
+
+// func calcCoordinate(fileBeep, fileAnsw string) (float64, float64, error) {
+// 	var files [2]string
+// 	dwnlDir := os.Getenv("ABS_PATH_DWL")
+// 	files[0] = dwnlDir + fileBeep + ".mp3"
+// 	files[1] = dwnlDir + fileAnsw + ".mp3"
+// 	var duration [2]float64
+// 	for i := 0; i < len(files); i++ {
+// 		com := fmt.Sprintf("%s %s -n stat 2>&1 | %s Length", os.Getenv("SOX"), files[i], os.Getenv("REG"))
+// 		out, err := execCommand(com)
+// 		if err != nil {
+// 			return 0, 0, err
+// 		}
+// 		str := string(out)
+// 		strSplit := strings.Split(str, "Length (seconds):")
+// 		strTrim := strings.Trim(strSplit[1], " \r\n")
+// 		sec, err := strconv.ParseFloat(strTrim, 64)
+// 		duration[i] = sec
+// 	}
+// 	return duration[0], 600 * duration[0] / (duration[0] + duration[1]), nil
+// }

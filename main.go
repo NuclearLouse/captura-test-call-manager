@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 
 	"redits.oculeus.com/asorokin/my_packages/crypter"
@@ -93,8 +94,15 @@ func main() {
 
 // SetEnvVars sets the environment variables necessary for work
 func setEnvVars(cfg *Config, appPath, slash string) error {
-	os.Setenv("SOX", cfg.Decoders.Sox)
-	os.Setenv("FFMPEG", cfg.Decoders.Ffmpeg)
+	switch runtime.GOOS {
+	case "windows":
+		os.Setenv("DURATION", cfg.Decoders.Ffmpeg+" -i %s 2>&1 | findstr Duration")
+		os.Setenv("CONCAT_MP3", cfg.Decoders.Ffmpeg+" -i %s -i %s -filter_complex [0:a][1:a]concat=n=2:v=0:a=1 %s")
+		os.Setenv("WAV_FORM_IMG", cfg.Decoders.Ffmpeg+" -i %s -filter_complex [0:a]aformat=channel_layouts=mono,compand=gain=-6,showwavespic=s=500x100:colors=#000000[fg];color=s=500x100:color=#FFFFFF,drawgrid=width=iw/10:height=ih/5:color=#000000@0.1[bg];[bg][fg]overlay=format=rgb,drawbox=x=(iw-w)/2:y=(ih-h)/2:w=iw:h=1:color=#000000 -vframes 1 %s")
+	default:
+		os.Setenv("DURATION", cfg.Decoders.Ffmpeg+" -i %s 2>&1 | grep Duration")
+	}
+	os.Setenv("DECODE_WAV", cfg.Decoders.Ffmpeg+" -y -i %s %s")
 	os.Setenv("FORMAT_IMG", cfg.Application.FormatIMG)
 	os.Setenv("ABS_PATH_DWL", appPath+tmpDir+slash)
 
