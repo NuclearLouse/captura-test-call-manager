@@ -6,6 +6,24 @@ package main
 
 import "os"
 
+type destinationList struct {
+	destination string
+	code        string
+	alias       string
+}
+
+type routeList struct {
+	externalID  string // External ID
+	folder      string // Folder (OPTIONAL)
+	carrier     string // Carrier (OPTIONAL)
+	trunkGroup  string // Trunk Group (OPTIONAL)
+	trunk       string // Trunk Name /trunk string
+	description string // Description (OPTIONAL)
+	dialerGroup string // Dialer Group (OPTIONAL)
+	iac         string // IAC (OPTIONAL)
+	nac         string // NAC (OPTIONAL)
+}
+
 func (netSenseAPI) TableName() string {
 	return os.Getenv("SCHEMA_PG") + "CallingSys_API_NetSense"
 }

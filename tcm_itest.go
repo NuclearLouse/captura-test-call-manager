@@ -636,24 +636,3 @@ func parseTime(strTime string) (time.Time, error) {
 	}
 	return t, nil
 }
-
-// func calcCoordinate(fileBeep, fileAnsw string) (float64, float64, error) {
-// 	var files [2]string
-// 	dwnlDir := os.Getenv("ABS_PATH_DWL")
-// 	files[0] = dwnlDir + fileBeep + ".mp3"
-// 	files[1] = dwnlDir + fileAnsw + ".mp3"
-// 	var duration [2]float64
-// 	for i := 0; i < len(files); i++ {
-// 		com := fmt.Sprintf("%s %s -n stat 2>&1 | %s Length", os.Getenv("SOX"), files[i], os.Getenv("REG"))
-// 		out, err := execCommand(com)
-// 		if err != nil {
-// 			return 0, 0, err
-// 		}
-// 		str := string(out)
-// 		strSplit := strings.Split(str, "Length (seconds):")
-// 		strTrim := strings.Trim(strSplit[1], " \r\n")
-// 		sec, err := strconv.ParseFloat(strTrim, 64)
-// 		duration[i] = sec
-// 	}
-// 	return duration[0], 600 * duration[0] / (duration[0] + duration[1]), nil
-// }

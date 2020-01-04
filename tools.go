@@ -181,8 +181,7 @@ func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
 func decodeToWAV(nameFile, codec string) ([]byte, error) {
 	file := os.Getenv("ABS_PATH_DWL") + nameFile + "." + codec
 	fileWAV := os.Getenv("ABS_PATH_DWL") + nameFile + ".wav"
-	com := fmt.Sprintln(fmt.Sprintf(os.Getenv("DECODE_WAV"), file, fileWAV))
-	// com := fmt.Sprintf("%s -y -i %s %s", os.Getenv("FFMPEG"), file, fileWAV)
+	com := fmt.Sprintln(fmt.Sprintf(os.Getenv("DECODE_TO_WAV"), file, fileWAV))
 	_, err := execCommand(com)
 	// log.Debug(com)
 	if err != nil {
