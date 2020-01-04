@@ -7,7 +7,6 @@
 package main
 
 import (
-	"os"
 	"strings"
 	"time"
 )
@@ -364,7 +363,7 @@ type batchResult struct {
 }
 
 func (assureAPI) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_API_Assure"
+	return schemaPG + "CallingSys_API_Assure"
 }
 
 type assureAPI struct {
@@ -384,7 +383,7 @@ type assureAPI struct {
 }
 
 func (assureRoutes) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_assure_routes"
+	return schemaPG + "CallingSys_assure_routes"
 }
 
 type assureRoutes struct {
@@ -419,7 +418,7 @@ type assureRoutes struct {
 }
 
 func (assureDestinations) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_assure_destinations"
+	return schemaPG + "CallingSys_assure_destinations"
 }
 
 type assureDestinations struct {
@@ -441,7 +440,7 @@ type assureDestinations struct {
 }
 
 func (assureNodes) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_assure_nodes"
+	return schemaPG + "CallingSys_assure_nodes"
 }
 
 type assureNodes struct {
@@ -482,7 +481,7 @@ type assureNodes struct {
 }
 
 func (assureNodesCapabilities) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_assure_nodes_capabilities"
+	return schemaPG + "CallingSys_assure_nodes_capabilities"
 }
 
 type assureNodesCapabilities struct {

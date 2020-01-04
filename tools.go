@@ -95,9 +95,9 @@ func execCommand(com string) ([]byte, error) {
 }
 
 func waveFormImage(nameFile string, x int) ([]byte, error) {
-	pathWavFile := os.Getenv("ABS_PATH_DWL") + nameFile + ".wav"
-	pathPngFile := os.Getenv("ABS_PATH_DWL") + nameFile + ".png"
-	com := fmt.Sprintln(fmt.Sprintf(os.Getenv("WAV_FORM_IMG"), pathWavFile, pathPngFile))
+	pathWavFile := srvTmpFolder + nameFile + ".wav"
+	pathPngFile := srvTmpFolder + nameFile + ".png"
+	com := fmt.Sprintln(fmt.Sprintf(ffmpegWavFormImg, pathWavFile, pathPngFile))
 	_, err := execCommand(com)
 	if err != nil {
 		return nil, err
@@ -110,17 +110,12 @@ func waveFormImage(nameFile string, x int) ([]byte, error) {
 		}
 	}
 
-	pathImgFile := pathPngFile
-
-	if os.Getenv("FORMAT_IMG") == "bmp" {
-		pathBmpFile := os.Getenv("ABS_PATH_DWL") + nameFile + ".bmp"
-		if err := encodePNGtoBMP(pathPngFile, pathBmpFile); err != nil {
-			return nil, err
-		}
-		pathImgFile = pathBmpFile
-
+	pathBmpFile := srvTmpFolder + nameFile + ".bmp"
+	if err := encodePNGtoBMP(pathPngFile, pathBmpFile); err != nil {
+		return nil, err
 	}
-	content, err := ioutil.ReadFile(pathImgFile)
+
+	content, err := ioutil.ReadFile(pathBmpFile)
 	if err != nil {
 		return nil, err
 	}
@@ -179,9 +174,9 @@ func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
 }
 
 func decodeToWAV(nameFile, codec string) ([]byte, error) {
-	file := os.Getenv("ABS_PATH_DWL") + nameFile + "." + codec
-	fileWAV := os.Getenv("ABS_PATH_DWL") + nameFile + ".wav"
-	com := fmt.Sprintln(fmt.Sprintf(os.Getenv("DECODE_TO_WAV"), file, fileWAV))
+	file := srvTmpFolder + nameFile + "." + codec
+	fileWAV := srvTmpFolder + nameFile + ".wav"
+	com := fmt.Sprintln(fmt.Sprintf(ffmpegDecodeToWav, file, fileWAV))
 	_, err := execCommand(com)
 	// log.Debug(com)
 	if err != nil {
@@ -198,7 +193,7 @@ func deleteOldTestInfo(db *gorm.DB) error {
 	query := fmt.Sprintf(`DELETE FROM %s"CallingSys_TestResults" AS t1 
 	USING %[1]s"CallingSys_Settings" AS t2 
 	WHERE t1."TestSystem"=t2."SystemID" 
-	AND (CURRENT_TIMESTAMP::date-t1."CallComplete"::date)>t2."Log_Period";`, os.Getenv("SCHEMA_PG"))
+	AND (CURRENT_TIMESTAMP::date-t1."CallComplete"::date)>t2."Log_Period";`, schemaPG)
 	return db.Exec(query).Error
 }
 

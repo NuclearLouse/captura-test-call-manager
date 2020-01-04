@@ -1,6 +1,9 @@
 [application]
-format_img       = bmp
 prepare_request  = false
+ffmpeg           = c:\Users\ffmpeg-20190928\bin\ffmpeg.exe
+delete_old_tests = 12 #hours
+prepare_tests    = 4  #hours
+check_tests      = 5  #seconds
 
 [logger]
 log_path   = TestCallsSrvc.log
@@ -19,14 +22,3 @@ ssl_mode      = false
 create_tables = false
 sqlite_path   = #absolute path to sqlite .db
 crypt_pass    =
-
-[decoders]
-ffmpeg = c:\Users\ffmpeg-20190928\bin\ffmpeg.exe
-sox    = c:\Users\sox-14-4-2\sox.exe
-## example abs path for Windows OS
-
-[timetable]
-delete_old_tests = 12
-prepare_tests    = 4
-check_tests      = 5
-

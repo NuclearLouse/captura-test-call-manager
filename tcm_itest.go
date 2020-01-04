@@ -178,7 +178,7 @@ func insertsPrepareXML(db *gorm.DB, req string, res *http.Response) error {
 			if err := mapstructure.Decode(profiles.Profiles[i], &profile); err != nil {
 				return err
 			}
-			if os.Getenv("DIALECT_DB") == "sqlite3" {
+			if dialectDB == "sqlite3" {
 				if err := tx.Create(&profile).Error; err != nil {
 					tx.Rollback()
 					return err
@@ -203,7 +203,7 @@ func insertsPrepareXML(db *gorm.DB, req string, res *http.Response) error {
 			s := &supplier
 			pref := strings.Split(s.Prefix, "#")
 			s.Prefix = pref[0]
-			if os.Getenv("DIALECT_DB") == "sqlite3" {
+			if dialectDB == "sqlite3" {
 				if err := tx.Create(&supplier).Error; err != nil {
 					tx.Rollback()
 					return err
@@ -231,7 +231,7 @@ func insertsPrepareXML(db *gorm.DB, req string, res *http.Response) error {
 			if err := mapstructure.Decode(ndblist.Breakouts[i], &breakout); err != nil {
 				return err
 			}
-			if os.Getenv("DIALECT_DB") == "sqlite3" {
+			if dialectDB == "sqlite3" {
 				if err := tx.Create(&breakout).Error; err != nil {
 					tx.Rollback()
 					return err
@@ -240,7 +240,7 @@ func insertsPrepareXML(db *gorm.DB, req string, res *http.Response) error {
 			bulkslice = append(bulkslice, breakout)
 		}
 	}
-	switch os.Getenv("DIALECT_DB") {
+	switch dialectDB {
 	case "sqlite3":
 		err := tx.Commit().Error
 		if err != nil {
@@ -316,7 +316,6 @@ func (api itestAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 
 func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 	for {
-		downloadDir := os.Getenv("ABS_PATH_DWL")
 		var rows []CallingSysTestResults
 		if err := db.Where(`"DataLoaded"=false AND "TestSystem"=?`, api.SystemID).Find(&rows).Error; err != nil {
 			log.Errorf(502, "Cann't obtain rows for DataLoaded=false|%v", err)
@@ -371,13 +370,12 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 				log.Info("Created image PNG file for call_id", rows[i].CallID)
 
 				listDeleteFiles := []string{
-					downloadDir + nameFileBeep + ".mp3",
-					downloadDir + nameFileBeep + ".wav",
-					downloadDir + nameFileBeep + ".png",
+					srvTmpFolder + nameFileBeep + ".mp3",
+					srvTmpFolder + nameFileBeep + ".wav",
+					srvTmpFolder + nameFileBeep + ".png",
+					srvTmpFolder + nameFileBeep + ".bmp",
 				}
-				if os.Getenv("FORMAT_IMG") == "bmp" {
-					listDeleteFiles = append(listDeleteFiles, downloadDir+nameFileBeep+".bmp")
-				}
+
 				callsinfo := CallingSysTestResults{
 					DataLoaded:  true,
 					AudioFile:   cWav,
@@ -436,8 +434,8 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 					}
 					log.Info("Concatenate beep and answer mp3 files for call_id", rows[i].CallID)
 					listDeleteFiles := []string{
-						downloadDir + nameFileBeep + ".mp3",
-						downloadDir + nameFileAnsw + ".mp3",
+						srvTmpFolder + nameFileBeep + ".mp3",
+						srvTmpFolder + nameFileAnsw + ".mp3",
 					}
 					if err = deleteFiles(listDeleteFiles); err != nil {
 						log.Errorf(508, "Cann't delete beep or answer mp3 files for call_id %s|%v", rows[i].CallID, err)
@@ -467,13 +465,10 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 				log.Info("Created image PNG file for call_id", rows[i].CallID)
 
 				listDeleteFiles := []string{
-					downloadDir + nameFile + ".mp3",
-					downloadDir + nameFile + ".wav",
-					downloadDir + nameFile + ".png",
-				}
-
-				if os.Getenv("FORMAT_IMG") == "bmp" {
-					listDeleteFiles = append(listDeleteFiles, downloadDir+nameFile+".bmp")
+					srvTmpFolder + nameFile + ".mp3",
+					srvTmpFolder + nameFile + ".wav",
+					srvTmpFolder + nameFile + ".png",
+					srvTmpFolder + nameFile + ".bmp",
 				}
 
 				callsinfo := CallingSysTestResults{
@@ -575,7 +570,7 @@ func xmlDecoder(res *http.Response) *xml.Decoder {
 }
 
 func createFile(res *http.Response, nameFile string) (bool, error) {
-	filepath := os.Getenv("ABS_PATH_DWL") + nameFile
+	filepath := srvTmpFolder + nameFile
 	file, err := os.Create(filepath)
 	if err != nil {
 		return false, err
@@ -594,11 +589,10 @@ func createFile(res *http.Response, nameFile string) (bool, error) {
 }
 
 func concatMP3files(fileBeep, fileAnsw string) (string, error) {
-	pathBeep := os.Getenv("ABS_PATH_DWL") + fileBeep + ".mp3"
-	pathAnsw := os.Getenv("ABS_PATH_DWL") + fileAnsw + ".mp3"
-	pathOut := os.Getenv("ABS_PATH_DWL") + "out_" + fileAnsw + ".mp3"
-
-	com := fmt.Sprintln(fmt.Sprintf(os.Getenv("CONCAT_MP3"), pathBeep, pathAnsw, pathOut))
+	pathBeep := srvTmpFolder + fileBeep + ".mp3"
+	pathAnsw := srvTmpFolder + fileAnsw + ".mp3"
+	pathOut := srvTmpFolder + "out_" + fileAnsw + ".mp3"
+	com := fmt.Sprintln(fmt.Sprintf(ffmpegConcatMP3, pathBeep, pathAnsw, pathOut))
 	_, err := execCommand(com)
 	if err != nil {
 		return "", err
@@ -608,11 +602,11 @@ func concatMP3files(fileBeep, fileAnsw string) (string, error) {
 
 func calcCoordinate(fileBeep, fileAnsw string) (float64, int, error) {
 	var files [2]string
-	files[0] = os.Getenv("ABS_PATH_DWL") + fileBeep + ".mp3"
-	files[1] = os.Getenv("ABS_PATH_DWL") + fileAnsw + ".mp3"
+	files[0] = srvTmpFolder + fileBeep + ".mp3"
+	files[1] = srvTmpFolder + fileAnsw + ".mp3"
 	var duration [2]int
 	for i := 0; i < len(files); i++ {
-		com := fmt.Sprintln(fmt.Sprintf(os.Getenv("DURATION"), files[i]))
+		com := fmt.Sprintln(fmt.Sprintf(ffmpegDuration, files[i]))
 		out, err := execCommand(com)
 		if err != nil {
 			return 0, 0, err

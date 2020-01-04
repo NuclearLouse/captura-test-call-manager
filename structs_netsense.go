@@ -4,8 +4,6 @@
 //
 package main
 
-import "os"
-
 type destinationList struct {
 	destination string
 	code        string
@@ -25,7 +23,7 @@ type routeList struct {
 }
 
 func (netSenseAPI) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_API_NetSense"
+	return schemaPG + "CallingSys_API_NetSense"
 }
 
 type netSenseAPI struct {

@@ -108,7 +108,7 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 			if err := mapstructure.Decode(routes.QueryResult1[i], &route); err != nil {
 				return err
 			}
-			if os.Getenv("DIALECT_DB") == "sqlite3" {
+			if dialectDB == "sqlite3" {
 				if err := tx.Create(&route).Error; err != nil {
 					tx.Rollback()
 					return err
@@ -130,7 +130,7 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 			if err := mapstructure.Decode(destinations.QueryResult1[i], &destination); err != nil {
 				return err
 			}
-			if os.Getenv("DIALECT_DB") == "sqlite3" {
+			if dialectDB == "sqlite3" {
 				if err := tx.Create(&destination).Error; err != nil {
 					tx.Rollback()
 					return err
@@ -152,7 +152,7 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 			if err := mapstructure.Decode(nodes.QueryResult1[i], &node); err != nil {
 				return err
 			}
-			if os.Getenv("DIALECT_DB") == "sqlite3" {
+			if dialectDB == "sqlite3" {
 				if err := tx.Create(&node).Error; err != nil {
 					tx.Rollback()
 					return err
@@ -174,7 +174,7 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 			if err := mapstructure.Decode(nodes.QueryResult1[i], &node); err != nil {
 				return err
 			}
-			if os.Getenv("DIALECT_DB") == "sqlite3" {
+			if dialectDB == "sqlite3" {
 				if err := tx.Create(&node).Error; err != nil {
 					tx.Rollback()
 					return err
@@ -183,7 +183,7 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 			bulkslice = append(bulkslice, node)
 		}
 	}
-	switch os.Getenv("DIALECT_DB") {
+	switch dialectDB {
 	case "sqlite3":
 		err := tx.Commit().Error
 		if err != nil {
@@ -382,7 +382,6 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, ctr CallingSysTestResult
 		return err
 	}
 	var name string
-	dwnlDir := os.Getenv("ABS_PATH_DWL")
 	for i := range result.QueryResult1 {
 		partAudio := result.QueryResult1[i].APartyAudio
 		if partAudio != "" {
@@ -422,14 +421,11 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, ctr CallingSysTestResult
 			log.Info("Created image PNG file for call_id", name)
 
 			listDeleteFiles := []string{
-				dwnlDir + name + ".amr.gz",
-				dwnlDir + name + ".amr",
-				dwnlDir + name + ".wav",
-				dwnlDir + name + ".png",
-			}
-
-			if os.Getenv("FORMAT_IMG") == "bmp" {
-				listDeleteFiles = append(listDeleteFiles, dwnlDir+name+".bmp")
+				srvTmpFolder + name + ".amr.gz",
+				srvTmpFolder + name + ".amr",
+				srvTmpFolder + name + ".wav",
+				srvTmpFolder + name + ".png",
+				srvTmpFolder + name + ".bmp",
 			}
 
 			callsinfo := CallingSysTestResults{
@@ -506,7 +502,7 @@ func (assureAPI) insertCallsInfo(db *gorm.DB, tr TestBatchResults, lt foundTest)
 }
 
 func createGZ(content []byte, nameFile string) error {
-	fileGZ := os.Getenv("ABS_PATH_DWL") + nameFile + ".amr.gz"
+	fileGZ := srvTmpFolder + nameFile + ".amr.gz"
 	file, err := os.Create(fileGZ)
 	if err != nil {
 		return err
@@ -520,7 +516,7 @@ func createGZ(content []byte, nameFile string) error {
 }
 
 func uncompressGZ(name string) error {
-	pathGZ := os.Getenv("ABS_PATH_DWL") + name + ".amr.gz"
+	pathGZ := srvTmpFolder + name + ".amr.gz"
 	gzipFile, err := os.Open(pathGZ)
 	if err != nil {
 		return err

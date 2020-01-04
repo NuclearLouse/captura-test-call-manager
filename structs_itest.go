@@ -7,7 +7,6 @@ package main
 
 import (
 	"encoding/xml"
-	"os"
 )
 
 type TestInitiation struct {
@@ -100,7 +99,7 @@ type call struct {
 }
 
 func (itestAPI) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_API_iTest"
+	return schemaPG + "CallingSys_API_iTest"
 }
 
 type itestAPI struct {
@@ -121,7 +120,7 @@ type itestAPI struct {
 }
 
 func (itestProfiles) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_iTest_profiles"
+	return schemaPG + "CallingSys_iTest_profiles"
 }
 
 type itestProfiles struct {
@@ -133,7 +132,7 @@ type itestProfiles struct {
 }
 
 func (itestSuppliers) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_iTest_suppliers"
+	return schemaPG + "CallingSys_iTest_suppliers"
 }
 
 type itestSuppliers struct {
@@ -147,9 +146,9 @@ func (b itestBreakouts) TableName() string {
 	var name string
 	switch b.BreakType {
 	case "cli":
-		name = os.Getenv("SCHEMA_PG") + "CallingSys_iTest_breakouts_cli"
+		name = schemaPG + "CallingSys_iTest_breakouts_cli"
 	case "std":
-		name = os.Getenv("SCHEMA_PG") + "CallingSys_iTest_breakouts_std"
+		name = schemaPG + "CallingSys_iTest_breakouts_std"
 	}
 	return name
 }
