@@ -81,10 +81,10 @@ func deleteFiles(nameFiles []string) error {
 func execCommand(com string) ([]byte, error) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
-	case "linux":
-		cmd = exec.Command("bash", "-c", com)
 	case "windows":
 		cmd = exec.Command("cmd", "/C", com)
+	default:
+		cmd = exec.Command("bash", "-c", com)
 	}
 	out, err := cmd.Output()
 	if err != nil {
