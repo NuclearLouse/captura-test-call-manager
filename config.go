@@ -12,13 +12,14 @@ type Config struct {
 	Application `ini:"application"`
 	Logger      `ini:"logger"`
 	ConnectDB   `ini:"connectdb"`
-	Decoders    `ini:"decoders"`
-	Timetable   `ini:"timetable"`
 }
 
 type Application struct {
-	FormatIMG      string `ini:"format_img"`
-	PrepareRequest bool   `ini:"prepare_request"`
+	PrepareRequest       bool   `ini:"prepare_request"`
+	Ffmpeg               string `ini:"ffmpeg"`
+	IntervalDeleteTests  int64  `ini:"delete_old_tests"`
+	IntervalCheckTests   int64  `ini:"check_tests"`
+	IntervalPrepareTests int64  `ini:"prepare_tests"`
 }
 
 type Logger struct {
@@ -39,17 +40,6 @@ type ConnectDB struct {
 	SslMode      bool   `ini:"ssl_mode"`
 	SQLitePath   string `ini:"sqlite_path"`
 	CreateTables bool   `ini:"create_tables"`
-}
-
-type Decoders struct {
-	Ffmpeg string `ini:"ffmpeg"`
-	Sox    string `ini:"sox"`
-}
-
-type Timetable struct {
-	IntervalDeleteTests  int64 `ini:"delete_old_tests"`
-	IntervalCheckTests   int64 `ini:"check_tests"`
-	IntervalPrepareTests int64 `ini:"prepare_tests"`
 }
 
 func readConfig(configFile, key string) (*Config, error) {
@@ -89,7 +79,7 @@ func readConfig(configFile, key string) (*Config, error) {
 
 func loadCfgFile(configFile string) (*ini.File, error) {
 	f, err := ini.LoadSources(ini.LoadOptions{
-		IgnoreInlineComment: true,
+		SpaceBeforeInlineComment: true,
 	}, configFile)
 	if err != nil {
 		return nil, err

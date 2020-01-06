@@ -8,7 +8,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -41,10 +40,10 @@ func runService(cfg *Config, db *gorm.DB) {
 		log.Info("Active test system", sysname)
 
 		if cfg.Application.PrepareRequest {
-			go ts[i].prepareRequests(db, cfg.Timetable.IntervalPrepareTests)
+			go ts[i].prepareRequests(db, cfg.Application.IntervalPrepareTests)
 		}
 
-		go checkTestStatus(db, ts[i], cfg.Timetable.IntervalCheckTests)
+		go checkTestStatus(db, ts[i], cfg.Application.IntervalCheckTests)
 
 		go ts[i].uploadResultFiles(db)
 
@@ -76,7 +75,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 		LEFT JOIN %[1]s"CallingSys_RouteList" rt ON po."CallingSys_RouteID" = rt."RouteID" 
 		WHERE po."Tested_Until" IS NULL 
 		AND (po."TestingSystemRequestID" IS NULL OR po."TestingSystemRequestID"<>'-1') 
-		AND ss."SystemName"='%s' AND po."RequestState" < 3;`, os.Getenv("SCHEMA_PG"), sysName)
+		AND ss."SystemName"='%s' AND po."RequestState" < 3;`, schemaPG, sysName)
 
 		rows, err := db.Raw(query).Rows()
 		if err != nil {
@@ -142,10 +141,10 @@ func checkOldTests(cfg *Config, db *gorm.DB) {
 		if err := deleteOldTestInfo(db); err != nil {
 			log.Errorf(2, "Error delete old test info|%v", err)
 		}
-		log.Debugf("Next delete old tests info after %d hours", cfg.Timetable.IntervalDeleteTests)
+		log.Debugf("Next delete old tests info after %d hours", cfg.Application.IntervalDeleteTests)
 
 		// For the sake of variety, I decided to try using a timer rather than the Sleep function
-		timer := time.NewTimer(time.Duration(cfg.Timetable.IntervalDeleteTests) * time.Hour)
+		timer := time.NewTimer(time.Duration(cfg.Application.IntervalDeleteTests) * time.Hour)
 		<-timer.C
 	}
 }

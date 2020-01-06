@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/jinzhu/gorm"
 
@@ -12,7 +11,7 @@ import (
 )
 
 func newDB(cfg *Config, pass string) (*gorm.DB, error) {
-	db, err := gorm.Open(os.Getenv("DIALECT_DB"), dbConnString(cfg, pass))
+	db, err := gorm.Open(dialectDB, dbConnString(cfg, pass))
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +30,7 @@ func dbConnString(cfg *Config, pass string) (cns string) {
 	case false:
 		sslmode = "disable"
 	}
-	switch os.Getenv("DIALECT_DB") {
+	switch dialectDB {
 	case "mysql":
 		cns = fmt.Sprintf("%s:%s@/%s?charset=utf8&parseTime=True&loc=%s",
 			cfg.ConnectDB.User,

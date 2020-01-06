@@ -5,13 +5,12 @@
 package main
 
 import (
-	"os"
 	"strings"
 	"time"
 )
 
 func (CallingSysSettings) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_Settings"
+	return schemaPG + "CallingSys_Settings"
 }
 
 type CallingSysSettings struct {
@@ -28,7 +27,7 @@ type CallingSysSettings struct {
 }
 
 func (CallingSysTestResults) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_TestResults"
+	return schemaPG + "CallingSys_TestResults"
 }
 
 type CallingSysTestResults struct {
@@ -69,7 +68,7 @@ type CallingSysTestResults struct {
 }
 
 func (PurchOppt) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "Purch_Oppt"
+	return schemaPG + "Purch_Oppt"
 }
 
 type PurchOppt struct {
@@ -134,7 +133,7 @@ type foundTest struct {
 }
 
 func (PurchStatuses) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "Purch_Statuses"
+	return schemaPG + "Purch_Statuses"
 }
 
 type PurchStatuses struct {
@@ -145,7 +144,7 @@ type PurchStatuses struct {
 }
 
 func (BnumbersHist) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_BnumbersHist"
+	return schemaPG + "CallingSys_BnumbersHist"
 }
 
 type BnumbersHist struct {
@@ -157,7 +156,7 @@ type BnumbersHist struct {
 }
 
 func (RouteList) TableName() string {
-	return os.Getenv("SCHEMA_PG") + "CallingSys_RouteList"
+	return schemaPG + "CallingSys_RouteList"
 }
 
 type RouteList struct {
