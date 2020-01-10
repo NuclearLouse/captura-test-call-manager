@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -266,4 +267,13 @@ func (po PurchOppt) failedTest(db *gorm.DB, request int, comment string) {
 	po.TestedUntil = time.Now()
 	po.TestComment = comment
 	db.Model(&po).Where(`"RequestID"=?`, request).Update(po)
+}
+
+func parseBNumbers(customBNumbers string) (nums []int64) {
+	bnums := strings.Split(customBNumbers, "\n")
+	for _, n := range bnums {
+		p, _ := strconv.ParseInt(strings.TrimPrefix(n, "+"), 10, 64)
+		nums = append(nums, p)
+	}
+	return
 }

@@ -218,14 +218,18 @@ type TestBatches struct {
 	Status         string `json:"Status"`
 	IsDone         bool   `json:"IsDone"`
 	Created        string `json:"Created"` //time.Time
-	TestBatchItems []testBatchItem
+	TestBatchItems []struct {
+		IsDone   bool   `json:"IsDone"`
+		Status   string `json:"Status"`
+		StatusID int    `json:"StatusID"`
+	} `json:"TestBatchItems"`
 }
 
-type testBatchItem struct {
-	StatusID int    `json:"StatusID"`
-	Status   string `json:"Status"`
-	IsDone   bool   `json:"IsDone"`
-}
+// type testBatchItem struct {
+// 	StatusID int    `json:"StatusID"`
+// 	Status   string `json:"Status"`
+// 	IsDone   bool   `json:"IsDone"`
+// }
 
 func (r *TestBatchResults) ParseTime(pt string) time.Time {
 	var t time.Time

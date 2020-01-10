@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/hex"
 	"encoding/json"
@@ -26,11 +27,88 @@ import (
 	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
+type testSetDestination struct {
+	NoOfExecutions int
+	TestSetItems   []batchDestination
+}
+
+type testSetBnumbers struct {
+	TestSetItems []batchBnumbers
+}
+
+type batchDestination struct {
+	TestTypeName  string
+	RouteID       int
+	DestinationID int
+}
+
+type batchBnumbers struct {
+	TestTypeName string
+	RouteID      int
+	PhoneNumber  int64
+}
+
+func newBatchDestination(tt string, r, d int) batchDestination {
+	return batchDestination{
+		TestTypeName:  tt,
+		RouteID:       r,
+		DestinationID: d}
+}
+
+func (b batchDestination) newTestDestination(e int) testSetDestination {
+	return testSetDestination{
+		NoOfExecutions: e,
+		TestSetItems:   []batchDestination{b},
+	}
+}
+
+func newBatchBnumbers(tt string, r int) batchBnumbers {
+	return batchBnumbers{
+		TestTypeName: tt,
+		RouteID:      r}
+}
+
+func (b batchBnumbers) collectBnums(nums []int64) []batchBnumbers {
+	var batches []batchBnumbers
+	for _, p := range nums {
+		b.PhoneNumber = p
+		batches = append(batches, b)
+	}
+	return batches
+}
+
+func newTestBnumbers(batches []batchBnumbers) testSetBnumbers {
+	return testSetBnumbers{
+		TestSetItems: batches,
+	}
+}
+
 func (api assureAPI) requestGET(r string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", api.URL+r, nil)
 	if err != nil {
 		return nil, err
 	}
+	res, err := api.httpRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (api *assureAPI) requestPOST(r string, jsonStr []byte) (*http.Response, error) {
+	req, err := http.NewRequest("POST", api.URL+r, bytes.NewBuffer(jsonStr))
+	req.Header.Set("Content-Type", "text/json")
+	if err != nil {
+		return nil, err
+	}
+	res, err := api.httpRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (api *assureAPI) httpRequest(req *http.Request) (*http.Response, error) {
 	req.SetBasicAuth(api.User, api.Pass)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -198,66 +276,72 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 }
 
 func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
-	var ttn, request string
+	var ttn string
+	var jsonBody []byte
+	var err error
+
 	switch nit.TestType.name() {
 	case "cli":
 		ttn = "CLI"
 	case "voice":
-		ttn = "Voice%20Quality%20Basic"
+		ttn = "Voice Quality Basic"
 	case "fas":
 		ttn = "FAS"
 	}
-	// var requests []string
+
 	switch {
 	case nit.BNumber != "":
-		//TODO: тут вызвать функцию проверки количества В-номеров и запуска тестов по каждому номеру
-		request = fmt.Sprintf("%sTestTypeName=%s&RouteID=%d&PhoneNumber=%s",
-			api.NewTestGet,
-			ttn,
-			nit.TestSysRouteID,
-			strings.TrimPrefix(nit.BNumber, "+"))
+		bnums := parseBNumbers(nit.BNumber)
+		b := newBatchBnumbers(ttn, nit.TestSysRouteID)
+		batches := b.collectBnums(bnums)
+		newTest := newTestBnumbers(batches)
+		jsonBody, err = json.Marshal(newTest)
+		if err != nil {
+			return err
+		}
 	default:
-		// TODO: фэйлить если nit.TestCalls==0 выставить tested_until дефолтным и request state -1, в комментарий занести ошибку.
-		request = fmt.Sprintf("%sTestTypeName=%s&RouteID=%d&DestinationID=%d&NoOfExecutions=%d",
-			api.NewTestGet,
-			ttn,
-			nit.TestSysRouteID,
-			nit.DestinationID,
-			nit.TestCalls)
+		if nit.TestCalls == 0 {
+			return err
+		}
+		b := newBatchDestination(ttn, nit.TestSysRouteID, nit.DestinationID)
+		newTest := b.newTestDestination(nit.TestCalls)
+		jsonBody, err = json.Marshal(newTest)
+		if err != nil {
+			return err
+		}
 	}
 
-	// for _, r := range requests {
-	response, err := api.requestGET(request)
+	response, err := api.requestPOST(api.StatusTests, jsonBody)
 	if err != nil {
 		return err
 	}
-	// defer response.Body.Close()
+
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
+
 	var newTests TestBatches
 	if err := json.Unmarshal(body, &newTests); err != nil {
 		return err
 	}
 	response.Body.Close()
-	// TODO: проверка на обязательное получение TestBatchID
-	// TODO: выставить tested_until дефолтным и request state -1, в комментарий занести ошибку.
+
 	log.Debug(string(body))
+
 	if newTests.TestBatchID == 0 {
 		err := errors.New("no return TestingSystemRequestID")
 		testinfo := PurchOppt{TestingSystemRequestID: "0"}
 		testinfo.failedTest(db, nit.RequestID, string(body))
 		return err
 	}
-	// ! при нескольких Б-номерах в одном тесте тут будет неправильная вставка
+
 	newTestInfo := PurchOppt{
 		TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
 		RequestState:           2}
 	if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
 		return err
 	}
-	// }
 
 	return nil
 }
@@ -537,3 +621,16 @@ func uncompressGZ(name string) error {
 
 	return nil
 }
+
+// GET requests for init new test
+// request = fmt.Sprintf("%sTestTypeName=%s&RouteID=%d&PhoneNumber=%s",
+// 	api.NewTestGet,
+// 	ttn,
+// 	nit.TestSysRouteID,
+// 	strings.TrimPrefix(nit.BNumber, "+"))
+// request = fmt.Sprintf("%sTestTypeName=%s&RouteID=%d&DestinationID=%d&NoOfExecutions=%d",
+// 	api.NewTestGet,
+// 	ttn,
+// 	nit.TestSysRouteID,
+// 	nit.DestinationID,
+// 	nit.TestCalls)
