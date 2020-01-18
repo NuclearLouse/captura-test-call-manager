@@ -29,17 +29,17 @@ import (
 
 type testSetDestination struct {
 	NoOfExecutions int
-	TestSetItems   []batchDestination
+	TestSetItems
+}
+
+type TestSetItems struct {
+	TestTypeName  string
+	RouteID       int
+	DestinationID int
 }
 
 type testSetBnumbers struct {
 	TestSetItems []batchBnumbers
-}
-
-type batchDestination struct {
-	TestTypeName  string
-	RouteID       int
-	DestinationID int
 }
 
 type batchBnumbers struct {
@@ -48,39 +48,41 @@ type batchBnumbers struct {
 	PhoneNumber  int64
 }
 
-func newBatchDestination(tt string, r, d int) batchDestination {
-	return batchDestination{
-		TestTypeName:  tt,
-		RouteID:       r,
-		DestinationID: d}
-}
-
-func (b batchDestination) newTestDestination(e int) testSetDestination {
-	return testSetDestination{
-		NoOfExecutions: e,
-		TestSetItems:   []batchDestination{b},
-	}
-}
-
-func newBatchBnumbers(tt string, r int) batchBnumbers {
-	return batchBnumbers{
-		TestTypeName: tt,
-		RouteID:      r}
-}
-
-func (b batchBnumbers) collectBnums(nums []int64) []batchBnumbers {
+func newTestBnumbers(ttn string, nit foundTest, nums []int64) testSetBnumbers {
 	var batches []batchBnumbers
 	for _, p := range nums {
-		b.PhoneNumber = p
+		b := batchBnumbers{
+			TestTypeName: ttn,
+			RouteID:      nit.TestSysRouteID,
+			PhoneNumber:  p}
+
 		batches = append(batches, b)
 	}
-	return batches
-}
-
-func newTestBnumbers(batches []batchBnumbers) testSetBnumbers {
 	return testSetBnumbers{
 		TestSetItems: batches,
 	}
+}
+
+func newTestDestination(ttn string, nit foundTest) testSetDestination {
+	return testSetDestination{
+		NoOfExecutions: nit.TestCalls,
+		TestSetItems: TestSetItems{
+			TestTypeName:  ttn,
+			RouteID:       nit.TestSysRouteID,
+			DestinationID: nit.DestinationID},
+	}
+}
+
+func buildNewTests(ttn string, nit foundTest) (interface{}, error) {
+	if nit.BNumber != "" {
+		bnums := parseBNumbers(nit.BNumber)
+		return newTestBnumbers(ttn, nit, bnums), nil
+	}
+
+	if nit.TestCalls == 0 {
+		return struct{}{}, errors.New("zero calls initialized")
+	}
+	return newTestDestination(ttn, nit), nil
 }
 
 func (api assureAPI) requestGET(r string) (*http.Response, error) {
@@ -95,7 +97,7 @@ func (api assureAPI) requestGET(r string) (*http.Response, error) {
 	return res, nil
 }
 
-func (api *assureAPI) requestPOST(r string, jsonStr []byte) (*http.Response, error) {
+func (api assureAPI) requestPOST(r string, jsonStr []byte) (*http.Response, error) {
 	req, err := http.NewRequest("POST", api.URL+r, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", "text/json")
 	if err != nil {
@@ -108,7 +110,7 @@ func (api *assureAPI) requestPOST(r string, jsonStr []byte) (*http.Response, err
 	return res, nil
 }
 
-func (api *assureAPI) httpRequest(req *http.Request) (*http.Response, error) {
+func (api assureAPI) httpRequest(req *http.Request) (*http.Response, error) {
 	req.SetBasicAuth(api.User, api.Pass)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -277,8 +279,6 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 
 func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	var ttn string
-	var jsonBody []byte
-	var err error
 
 	switch nit.TestType.name() {
 	case "cli":
@@ -289,28 +289,14 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 		ttn = "FAS"
 	}
 
-	switch {
-	case nit.BNumber != "":
-		bnums := parseBNumbers(nit.BNumber)
-		b := newBatchBnumbers(ttn, nit.TestSysRouteID)
-		batches := b.collectBnums(bnums)
-		newTest := newTestBnumbers(batches)
-		jsonBody, err = json.Marshal(newTest)
-		if err != nil {
-			return err
-		}
-	default:
-		if nit.TestCalls == 0 {
-			return err
-		}
-		b := newBatchDestination(ttn, nit.TestSysRouteID, nit.DestinationID)
-		newTest := b.newTestDestination(nit.TestCalls)
-		jsonBody, err = json.Marshal(newTest)
-		if err != nil {
-			return err
-		}
+	newTest, err := buildNewTests(ttn, nit)
+	if err != nil {
+		return err
 	}
-
+	jsonBody, err := json.Marshal(newTest)
+	if err != nil {
+		return err
+	}
 	response, err := api.requestPOST(api.StatusTests, jsonBody)
 	if err != nil {
 		return err
