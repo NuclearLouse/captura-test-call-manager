@@ -39,6 +39,8 @@ func (api itestAPI) runNewTest(db *gorm.DB, fnt foundTest) error {
 	// Пока будет просто пропуск.
 
 	// var request string
+	// если тест по Б-номеру
+	//   https://api.i-­test.net/?t=2011&profid=12&prefix=34&numbers=1234%%-­5678%%-­12345678
 	// switch fnt.TestType.name() {
 	// case "cli":
 	// 	request = fmt.Sprintf("%s?t=%d&profid=%s&vended=%s&ndbccgid=%s&ndbcgid=%s",
