@@ -46,16 +46,16 @@ func (api itestAPI) runNewTest(db *gorm.DB, fnt foundTest) error {
 	// 	request = fmt.Sprintf("%s?t=%d&profid=%s&vended=%s&ndbccgid=%s&ndbcgid=%s",
 	// 		api.URL,
 	// 		api.TestInitCli,
-	// 		*.ProfileID,  //из CallingSys_iTest_profiles
-	// 		*.SupplierID, //из CallingSys_iTest_suppliers
-	// 		*.CountryID,  //из CallingSys_iTest_breakouts_cli
-	// 		*.BreakoutID) //из CallingSys_iTest_breakouts_cli
+	// 		*.ProfileID,  //из CallingSys_iTest_profiles что это?
+	// 		*.SupplierID, //из CallingSys_iTest_suppliers это как Route у Assure?
+	// 		*.CountryID,  //из CallingSys_iTest_breakouts_cli это как Destination у Assure?
+	// 		*.BreakoutID) //из CallingSys_iTest_breakouts_cli это как Destination у Assure?
 	// case "voice":
 	// 	request = fmt.Sprintf("%s?t=%d&profid=%s&prefix=%s&ndbccgid=%s&ndbcgid=%s",
 	// 		api.URL,
 	// 		api.TestInit,
 	// 		*.ProfileID,  //из CallingSys_iTest_profiles
-	// 		*.Prefix,     //из CallingSys_iTest_suppliers
+	// 		*.Prefix,     //из CallingSys_iTest_suppliers что это?
 	// 		*.CountryID,  //из CallingSys_iTest_breakouts_std
 	// 		*.BreakoutID) //из CallingSys_iTest_breakouts_std
 	// }
@@ -68,7 +68,7 @@ func (api itestAPI) runNewTest(db *gorm.DB, fnt foundTest) error {
 	// if err := decoder.Decode(&testinit); err != nil {
 	// 	return err
 	// }
-	//! Обязательно тут вставлять в CallingSys_TestResult поле AudioURL=testinit.Test.ShareURL
+
 	// newTestInfo := PurchOppt{
 	// 	TestingSystemRequestID: testinit.Test.TestID,
 	// 	TestComment:            testinit.Test.ShareURL,
@@ -531,6 +531,7 @@ func (itestAPI) insertCallsInfo(db *gorm.DB, ci CallsInfo, ti foundTest) error {
 			}
 		}
 		callinfo := CallingSysTestResults{
+			AudioURL:                 ti.TestComment,
 			CallID:                   ci.Calls[i].CallID,
 			CallListID:               ti.TestingSystemRequestID,
 			TestSystem:               ti.SystemID,
@@ -552,6 +553,7 @@ func (itestAPI) insertCallsInfo(db *gorm.DB, ci CallsInfo, ti foundTest) error {
 			FasResult:                ci.Calls[i].FAS,
 			VoiceQualityMos:          ci.Calls[i].MOS,
 		}
+
 		if err := tx.Create(&callinfo).Error; err != nil {
 			tx.Rollback()
 			return err

@@ -20,7 +20,7 @@ type tester interface {
 	prepareRequests(*gorm.DB, int64)
 	runNewTest(*gorm.DB, foundTest) error
 	checkTestComplete(*gorm.DB, foundTest) error
-	uploadResultFiles(*gorm.DB)
+	// uploadResultFiles(*gorm.DB)
 }
 
 func runService(cfg *Config, db *gorm.DB) {
@@ -45,7 +45,7 @@ func runService(cfg *Config, db *gorm.DB) {
 
 		go checkTestStatus(db, ts[i], cfg.Application.IntervalCheckTests)
 
-		go ts[i].uploadResultFiles(db)
+		// go ts[i].uploadResultFiles(db)
 
 	}
 }
@@ -62,6 +62,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 		rt."Remote_Route_ID",
 		po."SupplierID",
 		po."Test_Calls",
+		COALESCE(po."Test_Comment",'') "Test_Comment",
 		COALESCE(po."Custom_BNumbers",'') "Custom_BNumbers",
 		po."Destination",
 		COALESCE(dl.remote_destination_id, -1) remote_destination_id,
@@ -93,14 +94,17 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 				&test.TestSysRouteID,         //CallingSys_RouteID
 				&test.SupplierID,             //SupplierID
 				&test.TestCalls,              //TestCalls
-				&test.BNumber,                //Custom_BNumbers
-				&test.Destination,            //Destination
-				&test.DestinationID,          //remote_destination_id from CallingSys_DestinationList
-				&test.SystemID,               //SystemID from CallingSys_Settings
-				&test.SystemName,             //SystemName from CallingSys_Settings
-				&test.TestType)               //TestSystemCallType from Purch_Statuses
+				&test.TestComment,
+				&test.BNumber,       //Custom_BNumbers
+				&test.Destination,   //Destination
+				&test.DestinationID, //remote_destination_id from CallingSys_DestinationList
+				&test.SystemID,      //SystemID from CallingSys_Settings
+				&test.SystemName,    //SystemName from CallingSys_Settings
+				&test.TestType)      //TestSystemCallType from Purch_Statuses
 			if err != nil {
 				log.Errorf(10, "Could not add individual tests to the list of tests found for system %s|%v", sysName, err)
+				newTestInfo := PurchOppt{}
+				newTestInfo.failedTest(db, test.RequestID, err.Error())
 				continue
 			}
 			ft = append(ft, test)

@@ -29,10 +29,10 @@ import (
 
 type testSetDestination struct {
 	NoOfExecutions int
-	TestSetItems
+	TestSetItems   []batchDestination
 }
 
-type TestSetItems struct {
+type batchDestination struct {
 	TestTypeName  string
 	RouteID       int
 	DestinationID int
@@ -66,10 +66,11 @@ func newTestBnumbers(ttn string, nit foundTest, nums []int64) testSetBnumbers {
 func newTestDestination(ttn string, nit foundTest) testSetDestination {
 	return testSetDestination{
 		NoOfExecutions: nit.TestCalls,
-		TestSetItems: TestSetItems{
+		TestSetItems: []batchDestination{batchDestination{
 			TestTypeName:  ttn,
 			RouteID:       nit.TestSysRouteID,
 			DestinationID: nit.DestinationID},
+		},
 	}
 }
 
@@ -122,6 +123,306 @@ func (api assureAPI) httpRequest(req *http.Request) (*http.Response, error) {
 func (api *assureAPI) sysName(db *gorm.DB) string {
 	db.Take(api)
 	return api.SystemName
+}
+
+func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
+	var ttn string
+
+	switch nit.TestType.name() {
+	case "cli":
+		ttn = "CLI"
+	case "voice":
+		ttn = "Voice Quality Basic"
+	case "fas":
+		ttn = "FAS"
+	}
+
+	newTest, err := buildNewTests(ttn, nit)
+	if err != nil {
+		return err
+	}
+	jsonBody, err := json.Marshal(newTest)
+	if err != nil {
+		return err
+	}
+	// log.Debug("Build request body: ", string(jsonBody))
+	response, err := api.requestPOST(api.StatusTests, jsonBody)
+	if err != nil {
+		return err
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	var newTests TestBatches
+	if err := json.Unmarshal(body, &newTests); err != nil {
+		return err
+	}
+	response.Body.Close()
+
+	log.Debug(string(body))
+
+	if newTests.TestBatchID == 0 {
+		err := errors.New("no return TestingSystemRequestID")
+		testinfo := PurchOppt{TestingSystemRequestID: "0"}
+		testinfo.failedTest(db, nit.RequestID, string(body))
+		return err
+	}
+
+	newTestInfo := PurchOppt{
+		TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
+		RequestState:           2}
+	if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
+	sysname := api.SystemName
+	testid := lt.TestingSystemRequestID
+	log.Debugf("Sending a request Complete_Test system %s for test_id %s", sysname, testid)
+	res, err := api.requestGET(api.StatusTests + testid)
+	if err != nil {
+		return err
+	}
+	log.Debugf("Successful response to the request Complete_Test for system %s test_ID %s", sysname, testid)
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+	res.Body.Close()
+	var result TestBatches
+	if err := json.Unmarshal(body, &result); err != nil {
+		return err
+	}
+	var statistics PurchOppt
+	switch result.StatusID {
+	case 0, 1, 2, 3:
+		// 0 - Unknown
+		// 1 - Created
+		// 2 - Waiting
+		// 3 - Running
+		return nil
+	case 4:
+		// 4 - Finishing
+		// Тут нужен такой запрос:
+		// https://h-54-246-182-248.csg-assure.com/api/QueryResults2?code=Test+Details+:+FAS+-+VQ+-+with+audio&Par1=60714
+		// и если "A Party Audio" != "" загружать аудио
+		req := fmt.Sprintf("%sTest+Details+:+CLI+-+FAS+-+VQ+with+CallBatchID&Par1%s", api.QueryResults, testid)
+		res, err := api.requestGET(req)
+		log.Debugf("Sending request TestResults fot system %s test_ID %s", sysname, testid)
+		if err != nil {
+			return err
+		}
+		log.Infof("Successful response to the request TestResults for system %s test_ID %s", sysname, testid)
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+		res.Body.Close()
+		var callsinfo TestBatchResults
+		if err := json.Unmarshal(body, &callsinfo); err != nil {
+			return err
+		}
+		start := time.Now()
+		log.Debugf("Start transaction insert into the table TestResults for system %s test_id %s", sysname, testid)
+		if err := api.insertCallsInfo(db, callsinfo, lt); err != nil {
+			return err
+		}
+		log.Infof("Successfully insert data from table TestResults for system %s test_ID %s", sysname, testid)
+		log.Debug("Elapsed time insert transaction", time.Since(start))
+		statistics = callsStatistics(db, testid)
+		statistics.TestedFrom = result.ParseTime(result.Created)
+		statistics.TestedByUser = lt.RequestByUser
+		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
+			return err
+		}
+		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
+		go checkPresentAudioFile(db, callsinfo)
+		return nil
+	case 5, 6, 7:
+		// 5 - Cancelling
+		// 6 - Cancelled
+		// 7 - Exception
+		log.Info("Cancelled test for test_ID", testid)
+		statistics.RequestState = 2
+		statistics.TestedUntil = time.Now()
+		statistics.TestComment = "Cancelled test by Assure for test_ID" + testid
+		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
+			return err
+		}
+		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
+		return nil
+	}
+	log.Info("Wait. The test is not over yet for test_ID", testid)
+	return nil
+}
+
+func checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
+	for i := range tr.QueryResult1 {
+		callID := fmt.Sprintf("%d", tr.QueryResult1[i].CallResultID)
+
+		if tr.QueryResult1[i].CallDuration == 0 || tr.QueryResult1[i].APartyAudio == "" {
+			log.Info("Not present audio file for call_id", callID)
+			if err := insertEmptyFiles(db, callID); err != nil {
+				log.Errorf(603, "Cann't update data row about empty request for call_id %s|%v", callID, err)
+			}
+			continue
+		}
+		content, err := hex.DecodeString(tr.QueryResult1[i].APartyAudio)
+		if err != nil {
+			log.Errorf(605, "Error decode field APartyAudio for call_id %s|%v", callID, err)
+			continue
+		}
+
+		if err := createGZ(content, callID); err != nil {
+			log.Errorf(606, "Error create GZ file for call_id %s|%v", callID, err)
+			continue
+		}
+
+		if err = uncompressGZ(callID); err != nil {
+			log.Errorf(607, "Error uncompress GZ file for call_id %s|%v", callID, err)
+			continue
+		}
+		var cWav []byte
+		cWav, err = decodeToWAV(callID, "amr")
+		if err != nil || len(cWav) == 0 {
+			log.Errorf(608, "Error decode to wav file for call_id %s|%v", callID, err)
+			cWav = []byte("C&V:Cann't decode to wav file")
+			// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
+			continue
+		}
+		log.Info("Created WAV file for call_id", callID)
+
+		cImg, err := waveFormImage(callID, 0)
+		if err != nil || len(cImg) == 0 {
+			log.Errorf(609, "Cann't create waveform image file for call_id %s|%v", callID, err)
+			cImg = []byte("C&V:Cann't create waveform image file")
+			// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
+			continue
+		}
+		log.Info("Created image PNG file for call_id", callID)
+
+		listDeleteFiles := []string{
+			srvTmpFolder + callID + ".amr.gz",
+			srvTmpFolder + callID + ".amr",
+			srvTmpFolder + callID + ".wav",
+			srvTmpFolder + callID + ".png",
+			srvTmpFolder + callID + ".bmp",
+		}
+
+		callsinfo := CallingSysTestResults{
+			DataLoaded:  true,
+			AudioFile:   cWav,
+			AudioGraph:  cImg,
+			ConnectTime: tr.QueryResult1[i].PGAD,
+			CallType:    tr.QueryResult1[i].TestType,
+		}
+		if err = updateCallsInfo(db, callID, callsinfo); err != nil {
+			log.Errorf(610, "Cann't insert WAV file into table for system Assure call_id %s|%v", callID, err)
+			continue
+		}
+		log.Info("Insert WAV and IMG file for callid", callID)
+
+		if err = deleteFiles(listDeleteFiles); err != nil {
+			log.Errorf(611, "Cann't delete some files for call_id %s|%v", callID, err)
+		}
+
+	}
+}
+
+func (assureAPI) insertCallsInfo(db *gorm.DB, tr TestBatchResults, lt foundTest) error {
+	var err error
+	tx := db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	if err := tx.Error; err != nil {
+		return err
+	}
+	for i := range tr.QueryResult1 {
+		res := tr.QueryResult1[i]
+		callstart := tr.ParseTime(res.TestStartTime)
+		// тут надо продумать получение полей с комментариями по Result, CLI и т.д.
+		r := res.Result //! надо увеличить эт ополе в таблице CallingSysTestResults
+		if len(r) > 30 {
+			r = r[:30]
+		}
+		callinfo := CallingSysTestResults{
+			AudioURL:                 strconv.Itoa(res.CallResultID),
+			CallID:                   strconv.Itoa(res.CallResultID),
+			CallListID:               lt.TestingSystemRequestID,
+			TestSystem:               lt.SystemID,
+			CallType:                 res.TestType, // or string(lt.TestType),
+			Destination:              res.BNetwork,
+			CallStart:                callstart,
+			CallComplete:             time.Unix(callstart.Unix()+int64(res.DisconnectTime), 0),
+			CallDuration:             res.CallDuration,
+			AlertTime:                res.BAlertTime,
+			ConnectTime:              res.BConnectTime,
+			BNumber:                  res.Bnumber,
+			Route:                    res.Route, // or lt.RouteCarrier
+			Status:                   res.ReleaseCause,
+			CliDetectedCallingNumber: res.CLIDelivered,
+			CliResult:                r, //! надо увеличить эт ополе в таблице CallingSysTestResults
+			VoiceQualityMos:          res.MOSA,
+			// VoiceQualitySNR:          int(res.SNR),
+			// VoiceQualitySpeechLevel:  int(res.SpeechLevel),
+			CallingNumber: res.ANumber,
+		}
+		if err := tx.Create(&callinfo).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	err = tx.Commit().Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func createGZ(content []byte, nameFile string) error {
+	fileGZ := srvTmpFolder + nameFile + ".amr.gz"
+	file, err := os.Create(fileGZ)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = file.Write(content)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func uncompressGZ(name string) error {
+	pathGZ := srvTmpFolder + name + ".amr.gz"
+	gzipFile, err := os.Open(pathGZ)
+	if err != nil {
+		return err
+	}
+	gzipReader, err := gzip.NewReader(gzipFile)
+	if err != nil {
+		return err
+	}
+	unzipNameFile := strings.Split(pathGZ, ".gz")
+	outfileWriter, err := os.Create(unzipNameFile[0])
+	if err != nil {
+		return err
+	}
+	io.Copy(outfileWriter, gzipReader)
+	outfileWriter.Close()
+	gzipReader.Close()
+	gzipFile.Close()
+
+	return nil
 }
 
 func (api assureAPI) prepareRequests(db *gorm.DB, interval int64) {
@@ -276,347 +577,3 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 	}
 	return nil
 }
-
-func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
-	var ttn string
-
-	switch nit.TestType.name() {
-	case "cli":
-		ttn = "CLI"
-	case "voice":
-		ttn = "Voice Quality Basic"
-	case "fas":
-		ttn = "FAS"
-	}
-
-	newTest, err := buildNewTests(ttn, nit)
-	if err != nil {
-		return err
-	}
-	jsonBody, err := json.Marshal(newTest)
-	if err != nil {
-		return err
-	}
-	response, err := api.requestPOST(api.StatusTests, jsonBody)
-	if err != nil {
-		return err
-	}
-
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-
-	var newTests TestBatches
-	if err := json.Unmarshal(body, &newTests); err != nil {
-		return err
-	}
-	response.Body.Close()
-
-	log.Debug(string(body))
-
-	if newTests.TestBatchID == 0 {
-		err := errors.New("no return TestingSystemRequestID")
-		testinfo := PurchOppt{TestingSystemRequestID: "0"}
-		testinfo.failedTest(db, nit.RequestID, string(body))
-		return err
-	}
-
-	newTestInfo := PurchOppt{
-		TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
-		RequestState:           2}
-	if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (api assureAPI) uploadResultFiles(db *gorm.DB) {
-	for {
-		sysname := api.SystemName
-		var rows []CallingSysTestResults
-		if err := db.Where(`"DataLoaded"=false AND "TestSystem"=?`, api.SystemID).Find(&rows).Error; err != nil {
-			log.Errorf(602, "Cann't obtain rows for DataLoaded=false|%v", err)
-			continue
-		}
-		if len(rows) == 0 {
-			log.Trace("Not rows for files_uploaded=false. All files upload.")
-			continue
-		}
-		testInProgress := " "
-		for i := range rows {
-			if rows[i].CallDuration == 0 {
-				log.Info("Not present audio file for call_id", rows[i].CallID)
-				if err := insertEmptyFiles(db, rows[i].CallID); err != nil {
-					log.Errorf(603, "Cann't update data row about empty request for call_id %s|%v", rows[i].CallID, err)
-				}
-				continue
-			}
-			if testInProgress == rows[i].CallListID {
-				continue
-			}
-			err := api.checkPresentAudioFile(db, rows[i])
-			if err != nil {
-				log.Errorf(604, "Error for check present audio file for system %s and call_id %s|%v", sysname, rows[i].CallID, err)
-				continue
-			}
-			testInProgress = rows[i].CallListID
-		}
-		log.Infof("All present files download from %s server and upload into the table TestResults", sysname)
-		time.Sleep(time.Duration(1) * time.Hour)
-	}
-}
-
-func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
-	sysname := api.SystemName
-	testid := lt.TestingSystemRequestID
-	log.Debugf("Sending a request Complete_Test system %s for test_id %s", sysname, testid)
-	res, err := api.requestGET(api.StatusTests + testid)
-	if err != nil {
-		return err
-	}
-	log.Debugf("Successful response to the request Complete_Test for system %s test_ID %s", sysname, testid)
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-	res.Body.Close()
-	var result TestBatches
-	if err := json.Unmarshal(body, &result); err != nil {
-		return err
-	}
-	var statistics PurchOppt
-	switch result.StatusID {
-	case 0, 1, 2, 3:
-		return nil
-	case 4:
-		res, err := api.requestGET(api.TestResults + testid)
-		log.Debugf("Sending request TestResults fot system %s test_ID %s", sysname, testid)
-		if err != nil {
-			return err
-		}
-		log.Infof("Successful response to the request TestResults for system %s test_ID %s", sysname, testid)
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
-		res.Body.Close()
-		var callsinfo TestBatchResults
-		if err := json.Unmarshal(body, &callsinfo); err != nil {
-			return err
-		}
-		start := time.Now()
-		log.Debugf("Start transaction insert into the table TestResults for system %s test_id %s", sysname, testid)
-		if err := api.insertCallsInfo(db, callsinfo, lt); err != nil {
-			return err
-		}
-		log.Infof("Successfully insert data from table TestResults for system %s test_ID %s", sysname, testid)
-		log.Debug("Elapsed time insert transaction", time.Since(start))
-		statistics = callsStatistics(db, testid)
-		statistics.TestedFrom = result.ParseTime(result.Created)
-		statistics.TestedByUser = lt.RequestByUser
-		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
-			return err
-		}
-		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
-		return nil
-	case 5, 6, 7:
-		log.Info("Cancelled test for test_ID", testid)
-		statistics.RequestState = 2
-		statistics.TestedUntil = time.Now()
-		statistics.TestComment = "Cancelled test by Assure for test_ID" + testid
-		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
-			return err
-		}
-		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
-		return nil
-	}
-	log.Info("Wait. The test is not over yet for test_ID", testid)
-	return nil
-}
-
-func (api assureAPI) checkPresentAudioFile(db *gorm.DB, ctr CallingSysTestResults) error {
-	req := fmt.Sprintf("%sTest+Details+:+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, ctr.CallListID)
-	res, err := api.requestGET(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil && err != io.EOF {
-		return err
-	}
-	var result queryResults
-	if err := json.Unmarshal(body, &result); err != nil {
-		return err
-	}
-	var name string
-	for i := range result.QueryResult1 {
-		partAudio := result.QueryResult1[i].APartyAudio
-		if partAudio != "" {
-			content, err := hex.DecodeString(partAudio)
-			if err != nil {
-				log.Errorf(605, "Error decode field APartyAudio for call_id %d|%v", result.QueryResult1[i].CallResultID, err)
-				continue
-			}
-
-			name = fmt.Sprintf("%d", result.QueryResult1[i].CallResultID)
-			if err := createGZ(content, name); err != nil {
-				log.Errorf(606, "Error create GZ file for call_id %s|%v", name, err)
-				continue
-			}
-
-			if err = uncompressGZ(name); err != nil {
-				log.Errorf(607, "Error uncompress GZ file for call_id %s|%v", name, err)
-				continue
-			}
-			var cWav []byte
-			cWav, err = decodeToWAV(name, "amr")
-			if err != nil || len(cWav) == 0 {
-				log.Errorf(608, "Error decode to wav file for call_id %s|%v", name, err)
-				cWav = []byte("C&V:Cann't decode to wav file")
-				// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
-				continue
-			}
-			log.Info("Created WAV file for call_id", name)
-
-			cImg, err := waveFormImage(name, 0)
-			if err != nil || len(cImg) == 0 {
-				log.Errorf(609, "Cann't create waveform image file for call_id %s|%v", name, err)
-				cImg = []byte("C&V:Cann't create waveform image file")
-				// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
-				continue
-			}
-			log.Info("Created image PNG file for call_id", name)
-
-			listDeleteFiles := []string{
-				srvTmpFolder + name + ".amr.gz",
-				srvTmpFolder + name + ".amr",
-				srvTmpFolder + name + ".wav",
-				srvTmpFolder + name + ".png",
-				srvTmpFolder + name + ".bmp",
-			}
-
-			callsinfo := CallingSysTestResults{
-				DataLoaded:  true,
-				AudioFile:   cWav,
-				AudioGraph:  cImg,
-				ConnectTime: result.QueryResult1[i].PGAD,
-				CallType:    result.QueryResult1[i].TestType,
-			}
-			if err = updateCallsInfo(db, name, callsinfo); err != nil {
-				log.Errorf(610, "Cann't insert WAV file into table for system %s call_id %s|%v", api.SystemName, name, err)
-				continue
-			}
-			log.Info("Insert WAV and IMG file for callid", name)
-
-			if err = deleteFiles(listDeleteFiles); err != nil {
-				log.Errorf(611, "Cann't delete some files for call_id %s|%v", name, err)
-			}
-		}
-	}
-	return nil
-}
-
-func (assureAPI) insertCallsInfo(db *gorm.DB, tr TestBatchResults, lt foundTest) error {
-	var err error
-	tx := db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	if err := tx.Error; err != nil {
-		return err
-	}
-	for i := range tr.TestBatchResult1 {
-		res := tr.TestBatchResult1[i]
-		callstart := tr.ParseTime(res.TestStartTime)
-		// тут надо продумать получение полей с комментариями по Result, CLI и т.д.
-		r := res.Result
-		if len(r) > 30 {
-			r = r[:30]
-		}
-		callinfo := CallingSysTestResults{
-			AudioURL:                 strconv.Itoa(res.CallResultID),
-			CallID:                   strconv.Itoa(res.CallResultID),
-			CallListID:               lt.TestingSystemRequestID,
-			TestSystem:               lt.SystemID,
-			CallType:                 string(lt.TestType),
-			Destination:              res.BNetwork,
-			CallStart:                callstart,
-			CallComplete:             time.Unix(callstart.Unix()+int64(res.DisconnectTime), 0),
-			CallDuration:             res.CallDuration,
-			AlertTime:                res.BAlertTime,
-			ConnectTime:              res.BConnectTime,
-			BNumber:                  res.BTestNode,
-			Route:                    res.Route,
-			Status:                   res.ReleaseCause,
-			CliDetectedCallingNumber: res.CLIDelivered,
-			CliResult:                r,
-			VoiceQualityMos:          res.MOSA,
-			VoiceQualitySNR:          int(res.SNR),
-			VoiceQualitySpeechLevel:  int(res.SpeechLevel),
-		}
-		if err := tx.Create(&callinfo).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	err = tx.Commit().Error
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func createGZ(content []byte, nameFile string) error {
-	fileGZ := srvTmpFolder + nameFile + ".amr.gz"
-	file, err := os.Create(fileGZ)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	_, err = file.Write(content)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func uncompressGZ(name string) error {
-	pathGZ := srvTmpFolder + name + ".amr.gz"
-	gzipFile, err := os.Open(pathGZ)
-	if err != nil {
-		return err
-	}
-	gzipReader, err := gzip.NewReader(gzipFile)
-	if err != nil {
-		return err
-	}
-	unzipNameFile := strings.Split(pathGZ, ".gz")
-	outfileWriter, err := os.Create(unzipNameFile[0])
-	if err != nil {
-		return err
-	}
-	io.Copy(outfileWriter, gzipReader)
-	outfileWriter.Close()
-	gzipReader.Close()
-	gzipFile.Close()
-
-	return nil
-}
-
-// GET requests for init new test
-// request = fmt.Sprintf("%sTestTypeName=%s&RouteID=%d&PhoneNumber=%s",
-// 	api.NewTestGet,
-// 	ttn,
-// 	nit.TestSysRouteID,
-// 	strings.TrimPrefix(nit.BNumber, "+"))
-// request = fmt.Sprintf("%sTestTypeName=%s&RouteID=%d&DestinationID=%d&NoOfExecutions=%d",
-// 	api.NewTestGet,
-// 	ttn,
-// 	nit.TestSysRouteID,
-// 	nit.DestinationID,
-// 	nit.TestCalls)

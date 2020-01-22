@@ -242,128 +242,43 @@ func (r *TestBatchResults) ParseTime(pt string) time.Time {
 }
 
 type TestBatchResults struct {
-	TestBatchResult1 []batchResult
+	QueryResult1 []batchResult
 }
 
-type queryResults struct {
-	QueryResult1 []batchQuery
-}
-
-type batchQuery struct {
-	CallResultID int
-	APartyAudio  string `json:"A Party Audio"`
-	PGAD         float64
-	TestType     string `json:"Test Type"`
-}
-
-// Потом надо убрать не нужные поля, чтобы не засорять код
 type batchResult struct {
-	AdapterInstanceIDS        int
-	AdapterInstanceNameS      string
-	ANumberIsEncrypted        bool   `json:"A_NumberIsEncrypted"`
-	AlphaOK                   bool   `json:"Alpha OK"`
-	AlphaS                    string `json:"Alpha (S)"`
-	AlphaR                    string `json:"Alpha (R)"`
-	APartyAudio               []byte `json:"A Party Audio"`
-	APIResponse               string `json:"API Response"`
-	AdapterInstanceIDR        int
-	AdapterInstanceNameR      string
-	BNumberIsEncrypted        bool    `json:"B_NumberIsEncrypted"`
-	BRegion                   string  `json:"B Region"`
-	BDestination              string  `json:"B Destination"`
-	BNetwork                  string  `json:"B Network"`
-	BTestNode                 string  `json:"B TestNode"`
-	BAlertTime                float64 `json:"B Alert Time"`
-	BConnectTime              float64 `json:"B Connect Time"`
-	BNumber                   string  `json:"B Number"`
-	CallBatchItemID           int
-	CallBatchStatusTypeID     int
-	CallBatchExceptionMessage string
-	CallDuration              float64 `json:"Call Duration"`
-	CallResultID              int
-	CLI                       string
-	CLIDelivered              string `json:"CLI Delivered"`
-	ContentOK                 bool   `json:"Content OK"`
-	CustomerID                string
-	DisconnectTime            float64 `json:"Disconnect Time"`
-	DelTimeOK                 bool    `json:"Del. Time OK"`
-	DelRepOK                  bool    `json:"Del. Rep. OK"`
-	DelTime                   int     `json:"Del. Time (sec)"`
-	DeliveryDetails           string  `json:"Delivery Details"`
-	DelTimeLimit              string  `json:"Del. Time Limit"` //time.Time
-	DeliveryUpdateDelay       float64
-	DelRepTime                string `json:"Del. Rep. Time"` //time.Time
-	DCSCharacterSetR          string
-	Duplicates                int
-	ErrorMsg                  string `json:"Error Msg."`
-	ExceptionMsg              string `json:"Exception Msg."`
-	HasAudio                  int
-	HasSecondAudio            int
-	IP                        float64
-	Modified                  string //time.Time
-	MessageID                 int    `json:"Message Id"`
-	NoSegS                    int    `json:"No of Seg (S)"`
-	NoSegR                    int    `json:"No of Seg (R)"`
-	Network                   string
-	OAOK                      bool    `json:"OA OK"`
-	OAS                       string  `json:"OA (S)"`
-	OAR                       string  `json:"OA (R)"`
-	MOSA                      float64 `json:"MOS A"`
-	PDUR                      string  `json:"PDU (R)"`
-	PoPIDR                    int
-	PoPIDS                    int
-	PGRD                      float64
-	PGAD                      float64
-	Result                    string
-	Route                     string
-	ResultTrace               string  `json:"Result Trace"`
-	ResultRecTime             string  `json:"Result Rec. Time"` //time.Time
-	RecTime                   string  `json:"Rec. Time"`        //time.Time
-	ReleaseCause              string  `json:"Release Cause"`
-	ReleaseLocation           string  `json:"Release Location"`
-	SNR                       float64 `json:"SNR (dB)"`
-	SpeechLevel               float64 `json:"Speech Level (dB)"`
-	SpeechFirstDetectedTime   string  `json:"Speech First Detected Time"` //time.Time
-	SpeechLastDetectedTime    string  `json:"Speech Last Detected Time"`  //time.Time
-	SMSResultID               int
-	Supplier                  string
-	SentTime                  string `json:"Sent Time"`
-	STonOK                    bool   `json:"S. TON OK"`
-	Smsc                      string
-	SmscOwner                 string `json:"SMSC Owner"`
-	STonS                     string `json:"S. TON (S)"`
-	STonR                     string `json:"S. TON (R)"`
-	SNumPlanS                 string `json:"S. Num. Plan (S)"`
-	SNumPlanR                 string `json:"S. Num. Plan (R)"`
-	SMSID                     string
-	SMSIDExpireTime           string //time.Time
-	SMSTemplateID             int
-	SMSTemplateModified       string
-	SMSCRecTime               string `json:"SMSC Rec. Time"` //time.Time
-	SubmitSMSResponseDelay    float64
-	SMS                       string
-	SMSReceiveDelay           float64
-	SMSResultReceiveID        int
-	SMSResultIDR              int
-	SMR                       string
-	SegmentDuplicate          int
-	SMSResultSendID           int
-	SMSResultIDS              int
-	SubmitSMSResponseTime     string //time.Time
-	StatusUpdateCode          string
-	StatusUpdateTime          string //time.Time
-	TestScenarioRuntimeUID    int
-	TestStartTime             string `json:"Test Start Time"` //time.Time
-	TestNode                  string `json:"Test Node"`
-	TestType                  string `json:"Test Type"`
-	TextS                     string `json:"Text (S)"`
-	TextR                     string `json:"Text (R)"`
-	Template                  string
-	UITestStatusID            int
-	UITestStatusDisplay       string
-	UDHS                      string `json:"UDH (S)"`
-	UDHR                      string `json:"UDH (R)"`
-	VoiceQualityProblem       string `json:"Voice Quality Problem"`
+	CallResultID            int
+	ANumber                 string `json:"A number"`
+	ANumberIsEncrypted      bool   `json:"A_NumberIsEncrypted"`
+	BNumberIsEncrypted      bool   `json:"B_NumberIsEncrypted"`
+	Result                  string
+	TestType                string `json:"Test Type"`
+	BNetwork                string `json:"B Network"`
+	BTestNode               string `json:"B Test Node"`
+	Bnumber                 string `json:"B number (first 6 digits)"`
+	Route                   string
+	TestStartTime           string `json:"Test Start Time"` //time.Time
+	Alert                   interface{}
+	Connect                 interface{}
+	CLI                     interface{} //int
+	VQA                     interface{} `json:"VQ A"`
+	VQB                     interface{} `json:"VQ B"`
+	FAS                     interface{} //int
+	CLIDelivered            string      `json:"CLI Delivered"`
+	MOSA                    float64     `json:"MOS A"`
+	MOSB                    float64     `json:"MOS B"`
+	PGRD                    float64
+	PGAD                    float64
+	CallDuration            float64     `json:"Call Duration"`
+	DisconnectTime          float64     `json:"Disconnect Time"`
+	BAlertTime              float64     `json:"B Alert Time"`
+	BCallDuration           float64     `json:"B Call Duration"`
+	BConnectTime            float64     `json:"B Connect Time"`
+	BDisconnectTime         float64     `json:"B Disconnect Time"`
+	ReleaseCause            string      `json:"Release Cause"`
+	ReleaseLocation         string      `json:"Release Location"`
+	SpeechFirstDetectedTime interface{} `json:"Speech First Detected Time"` //time.Time
+	SpeechLastDetectedTime  interface{} `json:"Speech Last Detected Time"`  //time.Time
+	APartyAudio             string      `json:"A Party Audio"`
 }
 
 func (assureAPI) TableName() string {
@@ -500,3 +415,87 @@ type assureNodesCapabilities struct {
 	NetworkName      string `gorm:"size:100"`
 	IsAParty         int    `gorm:"type:int"`
 }
+
+// possible fields in the response - batchResult
+// AdapterInstanceIDS        int
+// AdapterInstanceNameS      string
+// AlphaOK                   bool   `json:"Alpha OK"`
+// AlphaS                    string `json:"Alpha (S)"`
+// AlphaR                    string `json:"Alpha (R)"`
+// APIResponse               string `json:"API Response"`
+// AdapterInstanceIDR        int
+// AdapterInstanceNameR      string
+// BRegion                   string  `json:"B Region"`
+// BDestination              string  `json:"B Destination"`
+// CallBatchItemID           int
+// CallBatchStatusTypeID     int
+// CallBatchExceptionMessage string
+// ContentOK                 bool `json:"Content OK"`
+// CustomerID                string
+// DelTimeOK                 bool    `json:"Del. Time OK"`
+// DelRepOK                  bool    `json:"Del. Rep. OK"`
+// DelTime                   int     `json:"Del. Time (sec)"`
+// DeliveryDetails           string  `json:"Delivery Details"`
+// DelTimeLimit              string  `json:"Del. Time Limit"` //time.Time
+// DeliveryUpdateDelay       float64
+// DelRepTime                string `json:"Del. Rep. Time"` //time.Time
+// DCSCharacterSetR          string
+// Duplicates                int
+// ErrorMsg                  string `json:"Error Msg."`
+// ExceptionMsg              string `json:"Exception Msg."`
+// HasAudio                  int
+// HasSecondAudio            int
+// IP                        float64
+// Modified                  string //time.Time
+// MessageID                 int    `json:"Message Id"`
+// NoSegS                    int    `json:"No of Seg (S)"`
+// NoSegR                    int    `json:"No of Seg (R)"`
+// Network                   string
+// OAOK                      bool    `json:"OA OK"`
+// OAS                       string  `json:"OA (S)"`
+// OAR                       string  `json:"OA (R)"`
+// PDUR                      string  `json:"PDU (R)"`
+// PoPIDR                    int
+// PoPIDS                    int
+// ResultTrace               string      `json:"Result Trace"`
+// ResultRecTime             string      `json:"Result Rec. Time"` //time.Time
+// RecTime                   string      `json:"Rec. Time"`        //time.Time
+// SNR                       float64     `json:"SNR (dB)"`
+// SpeechLevel               float64     `json:"Speech Level (dB)"`
+// SMSResultID               int
+// Supplier                  string
+// SentTime                  string `json:"Sent Time"`
+// STonOK                    bool   `json:"S. TON OK"`
+// Smsc                      string
+// SmscOwner                 string `json:"SMSC Owner"`
+// STonS                     string `json:"S. TON (S)"`
+// STonR                     string `json:"S. TON (R)"`
+// SNumPlanS                 string `json:"S. Num. Plan (S)"`
+// SNumPlanR                 string `json:"S. Num. Plan (R)"`
+// SMSID                     string
+// SMSIDExpireTime           string //time.Time
+// SMSTemplateID             int
+// SMSTemplateModified       string
+// SMSCRecTime               string `json:"SMSC Rec. Time"` //time.Time
+// SubmitSMSResponseDelay    float64
+// SMS                       string
+// SMSReceiveDelay           float64
+// SMSResultReceiveID        int
+// SMSResultIDR              int
+// SMR                       string
+// SegmentDuplicate          int
+// SMSResultSendID           int
+// SMSResultIDS              int
+// SubmitSMSResponseTime     string //time.Time
+// StatusUpdateCode          string
+// StatusUpdateTime          string //time.Time
+// TestScenarioRuntimeUID    int
+// TestNode                  string `json:"Test Node"`
+// TextS                     string `json:"Text (S)"`
+// TextR                     string `json:"Text (R)"`
+// Template                  string
+// UITestStatusID            int
+// UITestStatusDisplay       string
+// UDHS                      string      `json:"UDH (S)"`
+// UDHR                      string      `json:"UDH (R)"`
+// VoiceQualityProblem       string      `json:"Voice Quality Problem"`

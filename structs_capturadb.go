@@ -112,7 +112,7 @@ func (t testtype) name() string {
 	case strings.Contains(ts, "fas"):
 		return "fas"
 	}
-	return ""
+	return "Unknown Test Type"
 }
 
 type foundTest struct {
@@ -130,6 +130,7 @@ type foundTest struct {
 	SystemID               int
 	SystemName             string
 	TestType               testtype
+	TestComment            string
 }
 
 func (PurchStatuses) TableName() string {
