@@ -19,6 +19,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"redits.oculeus.com/asorokin/my_packages/crypter"
@@ -27,6 +28,7 @@ import (
 
 const (
 	cfgFile = "CaptTestCallsSrvc.ini"
+	logFile = "CaptTestCallsSrvc"
 	tmpDir  = "temp"
 	key     = "XContextToStoreX"
 )
@@ -63,7 +65,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := log.Setup(cfg.Logger.LogPath, cfg.Logger.LogLevel, cfg.Logger.Rotate); err != nil {
+	logPath := cfg.Logger.LogPath
+	if !strings.HasSuffix(logPath, "/") {
+		logPath = logPath + "/"
+	}
+	if err := log.Setup(logPath+logFile, cfg.Logger.LogLevel, cfg.Logger.Rotate); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}

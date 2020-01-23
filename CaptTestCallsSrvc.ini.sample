@@ -6,7 +6,7 @@ prepare_tests    = 4  #hours
 check_tests      = 5  #seconds
 
 [logger]
-log_path   = TestCallsSrvc.log
+log_path   = 
 log_level  = info
 rotate     = daily
 
