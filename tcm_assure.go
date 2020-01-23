@@ -27,27 +27,6 @@ import (
 	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
-type testSetDestination struct {
-	NoOfExecutions int
-	TestSetItems   []batchDestination
-}
-
-type batchDestination struct {
-	TestTypeName  string
-	RouteID       int
-	DestinationID int
-}
-
-type testSetBnumbers struct {
-	TestSetItems []batchBnumbers
-}
-
-type batchBnumbers struct {
-	TestTypeName string
-	RouteID      int
-	PhoneNumber  int64
-}
-
 func newTestBnumbers(ttn string, nit foundTest, nums []int64) testSetBnumbers {
 	var batches []batchBnumbers
 	for _, p := range nums {
@@ -145,7 +124,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	if err != nil {
 		return err
 	}
-	// log.Debug("Build request body: ", string(jsonBody))
+	log.Debug("Build request body: ", string(jsonBody))
 	response, err := api.requestPOST(api.StatusTests, jsonBody)
 	if err != nil {
 		return err
@@ -177,7 +156,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
 		return err
 	}
-
+	log.Infof("Successful run test. TestID:%d", newTests.TestBatchID)
 	return nil
 }
 
@@ -206,15 +185,14 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		// 1 - Created
 		// 2 - Waiting
 		// 3 - Running
+		log.Debug("Wait. The test is not over yet for test_ID", testid)
 		return nil
 	case 4:
 		// 4 - Finishing
-		// Тут нужен такой запрос:
-		// https://h-54-246-182-248.csg-assure.com/api/QueryResults2?code=Test+Details+:+FAS+-+VQ+-+with+audio&Par1=60714
-		// и если "A Party Audio" != "" загружать аудио
-		req := fmt.Sprintf("%sTest+Details+:+CLI+-+FAS+-+VQ+with+CallBatchID&Par1%s", api.QueryResults, testid)
+		log.Debug("The end test for test_ID", testid)
+		req := fmt.Sprintf("%sTest+Details+:+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, testid)
 		res, err := api.requestGET(req)
-		log.Debugf("Sending request TestResults fot system %s test_ID %s", sysname, testid)
+		log.Debugf("Sending request TestResults for system %s test_ID %s", sysname, testid)
 		if err != nil {
 			return err
 		}
@@ -223,7 +201,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		if err != nil {
 			return err
 		}
-		res.Body.Close()
+		defer res.Body.Close()
 		var callsinfo TestBatchResults
 		if err := json.Unmarshal(body, &callsinfo); err != nil {
 			return err
@@ -238,6 +216,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		statistics = callsStatistics(db, testid)
 		statistics.TestedFrom = result.ParseTime(result.Created)
 		statistics.TestedByUser = lt.RequestByUser
+		statistics.TestResult = "OK"
 		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
 			return err
 		}
@@ -258,7 +237,6 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
 		return nil
 	}
-	log.Info("Wait. The test is not over yet for test_ID", testid)
 	return nil
 }
 
@@ -336,24 +314,9 @@ func checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
 }
 
 func (assureAPI) insertCallsInfo(db *gorm.DB, tr TestBatchResults, lt foundTest) error {
-	var err error
-	tx := db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	if err := tx.Error; err != nil {
-		return err
-	}
 	for i := range tr.QueryResult1 {
 		res := tr.QueryResult1[i]
 		callstart := tr.ParseTime(res.TestStartTime)
-		// тут надо продумать получение полей с комментариями по Result, CLI и т.д.
-		r := res.Result //! надо увеличить эт ополе в таблице CallingSysTestResults
-		if len(r) > 30 {
-			r = r[:30]
-		}
 		callinfo := CallingSysTestResults{
 			AudioURL:                 strconv.Itoa(res.CallResultID),
 			CallID:                   strconv.Itoa(res.CallResultID),
@@ -370,20 +333,14 @@ func (assureAPI) insertCallsInfo(db *gorm.DB, tr TestBatchResults, lt foundTest)
 			Route:                    res.Route, // or lt.RouteCarrier
 			Status:                   res.ReleaseCause,
 			CliDetectedCallingNumber: res.CLIDelivered,
-			CliResult:                r, //! надо увеличить эт ополе в таблице CallingSysTestResults
+			CliResult:                res.Result,
 			VoiceQualityMos:          res.MOSA,
-			// VoiceQualitySNR:          int(res.SNR),
-			// VoiceQualitySpeechLevel:  int(res.SpeechLevel),
-			CallingNumber: res.ANumber,
+			PDD:                      res.PGRD,
+			CallingNumber:            res.ANumber,
 		}
-		if err := tx.Create(&callinfo).Error; err != nil {
-			tx.Rollback()
+		if err := db.Create(&callinfo).Error; err != nil {
 			return err
 		}
-	}
-	err = tx.Commit().Error
-	if err != nil {
-		return err
 	}
 	return nil
 }

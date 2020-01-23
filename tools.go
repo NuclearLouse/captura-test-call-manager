@@ -238,14 +238,14 @@ func insertEmptyFiles(db *gorm.DB, callID string) error {
 func callsStatistics(db *gorm.DB, testid string) PurchOppt {
 	var total, complete, sumcalls float64
 	var max time.Time
-	var testresult CallingSysTestResults
-	db.Model(&testresult).
+	var tr CallingSysTestResults
+	db.Model(&tr).
 		Where(`"CallListID" = ?`, testid).
 		Select(`MAX("CallComplete")`).
 		Count(&total).
 		Row().
 		Scan(&max)
-	db.Model(&testresult).
+	db.Model(&tr).
 		Where(`"CallListID" = ? AND "CallDuration" > 0`, testid).
 		Select(`SUM("CallDuration")`).
 		Count(&complete).
@@ -256,14 +256,13 @@ func callsStatistics(db *gorm.DB, testid string) PurchOppt {
 		TestedUntil:  max,
 		TestASR:      100 * complete / total,
 		TestACD:      sumcalls / complete / 60,
-		// TestCalls:    int(total),
-		TestMinutes: sumcalls / 60,
+		TestMinutes:  sumcalls / 60,
 	}
 	return stat
 }
 
 func (po PurchOppt) failedTest(db *gorm.DB, request int, comment string) {
-	po.RequestState = -1
+	// po.TestingSystemRequestID = "-1"
 	po.TestedUntil = time.Now()
 	po.TestComment = comment
 	db.Model(&po).Where(`"RequestID"=?`, request).Update(po)

@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+//----------------------------------------------------------------------------------
+// Structs for prepare tests
+//----------------------------------------------------------------------------------
 type Destinations struct {
 	QueryResult1 []destination
 }
@@ -202,6 +205,33 @@ type smsTemplate struct {
 	TestTypeName            string      `json:"TestTypeName"`
 }
 
+//----------------------------------------------------------------------------------
+// Structs for initiated new tests
+//----------------------------------------------------------------------------------
+type testSetDestination struct {
+	NoOfExecutions int
+	TestSetItems   []batchDestination
+}
+
+type batchDestination struct {
+	TestTypeName  string
+	RouteID       int
+	DestinationID int
+}
+
+type testSetBnumbers struct {
+	TestSetItems []batchBnumbers
+}
+
+type batchBnumbers struct {
+	TestTypeName string
+	RouteID      int
+	PhoneNumber  int64
+}
+
+//----------------------------------------------------------------------------------
+// Structs for obtain tests results
+//----------------------------------------------------------------------------------
 func (r *TestBatches) ParseTime(pt string) time.Time {
 	var t time.Time
 	if pt == "" {
@@ -224,12 +254,6 @@ type TestBatches struct {
 		StatusID int    `json:"StatusID"`
 	} `json:"TestBatchItems"`
 }
-
-// type testBatchItem struct {
-// 	StatusID int    `json:"StatusID"`
-// 	Status   string `json:"Status"`
-// 	IsDone   bool   `json:"IsDone"`
-// }
 
 func (r *TestBatchResults) ParseTime(pt string) time.Time {
 	var t time.Time
