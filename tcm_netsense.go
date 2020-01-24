@@ -9,7 +9,7 @@ package main
 import (
 	"bytes"
 	"encoding/xml"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -55,68 +55,135 @@ func (api netSenseAPI) prepareRequests(db *gorm.DB, interval int64) {
 
 }
 
-func (api netSenseAPI) buildNewTests(nt foundTest) (testInit, error) {
-	var ti testInit
-	return ti, nil
+func (netSenseAPI) parseBNumbers(customBNumbers string) (nums []string) {
+	// Important:
+	// Also	a phone	number can be used instead of a destination	code.
+	// Plus(+) sign must be included.
+	// Example:	+357123123123
+	bnums := strings.Split(customBNumbers, "\n")
+	for _, n := range bnums {
+		if !strings.HasPrefix(n, "+") {
+			n = "+" + n
+		}
+		nums = append(nums, n)
+	}
+	return
 }
 
-func (api netSenseAPI) runNewTest(db *gorm.DB, nt foundTest) error {
-	var err error
-	for i := 0; i < nt.TestCalls; i++ {
-		newTest, err := api.buildNewTests(nt)
-		if err != nil {
-			//TODO: log.Error
-			continue
-		}
-		xmlBody, err := xml.Marshal(newTest)
-		if err != nil {
-			//TODO: log.Error
-			continue
+func assureRout(routID int) string {
+	// обращение к базе по routID и возврат его имени
+	return "route name"
+}
 
-		}
-		log.Debug("Build request body: ", string(xmlBody))
-		response, err := api.requestPOST(api.TestInit, xmlBody)
-		if err != nil {
-			//TODO: log.Error
-			continue
-		}
+func assureDestination(destID int) string {
+	// обращение к базе по destID и возврат его имени
+	return "destination name"
+}
 
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			//TODO: log.Error
-			continue
-		}
-
-		var newTests responseTestInit
-		if err := xml.Unmarshal(body, &newTests); err != nil {
-			//TODO: log.Error
-			continue
-		}
-		response.Body.Close()
-
-		log.Debug(string(body))
-
-		// if newTests.TestBatchID == 0 {
-		// 	err := errors.New("no return TestingSystemRequestID")
-		// 	testinfo := PurchOppt{TestingSystemRequestID: "0"}
-		// 	testinfo.failedTest(db, nit.RequestID, string(body))
-		// 	//TODO: log.Error
-		continue
-		// }
-
-		// newTestInfo := PurchOppt{
-		// 	TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
-		// 	RequestState:           2}
-		// if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
-		// //TODO: log.Error
-		//continue
-		// }
-		// log.Infof("Successful run test. TestID:%d", newTests.TestBatchID)
-
+func (api netSenseAPI) newTest(ttn string, nit foundTest) testInit {
+	var (
+		routes    []routeList
+		destes    []destList
+		calltypes []typeList
+		bnums     []string
+	)
+	if nit.BNumber != "" {
+		bnums = api.parseBNumbers(nit.BNumber)
 	}
+	for i := 0; i < nit.TestCalls; i++ {
+		dest := assureDestination(nit.DestinationID)
+		if nit.BNumber != "" && bnums[i] != "" {
+			dest = bnums[i]
+		}
+		r := routeList{Route: assureRout(nit.TestSysRouteID)}
+		d := destList{Destination: dest}
+		t := typeList{CallType: ttn}
+		routes = append(routes, r)
+		destes = append(destes, d)
+		calltypes = append(calltypes, t)
+	}
+	return testInit{
+		Auth: auth{Key: api.AuthKey},
+		Parameters: parameters{
+			RoutesList: routesList{
+				List: routes,
+			},
+			DestinationsList: destinationsList{
+				List: destes,
+			},
+			CallTypeList: callTypeList{
+				List: calltypes,
+			},
+		},
+		// Default value
+		Settings: settings{
+			// TimeZone:     "Europe/Stockholm",
+			// WebServiceID: 1,
+		},
+	}
+}
+
+func (api netSenseAPI) buildNewTests(ttn string, nit foundTest) (testInit, error) {
+	if nit.TestCalls == 0 {
+		return testInit{}, errors.New("zero calls initialized")
+	}
+	return api.newTest(ttn, nit), nil
+}
+
+func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
+	if nit.TestCalls == 0 {
+		return errors.New("zero calls initialized")
+	}
+
+	var ttn string
+	switch nit.TestType.name() {
+	case "cli":
+		ttn = "TrueCLI"
+	case "voice":
+		ttn = "Voice"
+	}
+
+	newTest := api.newTest(ttn, nit)
+
+	xmlBody, err := xml.Marshal(newTest)
 	if err != nil {
-		return err // тут можно логировать всю пачку ошибок если перед этим собирать их в срез
+		return err
+
 	}
+	log.Debug("Build request body: ", string(xmlBody))
+	response, err := api.requestPOST(api.TestInit, xmlBody)
+	if err != nil {
+		return err
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	var newTests responseTestInit
+	if err := xml.Unmarshal(body, &newTests); err != nil {
+		return err
+	}
+	response.Body.Close()
+
+	log.Debug(string(body))
+
+	// if newTests.TestBatchID == 0 {
+	// 	err := errors.New("no return TestingSystemRequestID")
+	// 	testinfo := PurchOppt{TestingSystemRequestID: "0"}
+	// 	testinfo.failedTest(db, nit.RequestID, string(body))
+	// return err
+	// }
+
+	// newTestInfo := PurchOppt{
+	// 	TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
+	// 	RequestState:           2}
+	// if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
+	//return err
+	// }
+	// log.Infof("Successful run test. TestID:%d", newTests.TestBatchID)
+
 	return nil
 }
 
@@ -128,111 +195,111 @@ func (api netSenseAPI) uploadResultFiles(db *gorm.DB) {
 	return
 }
 
-func (api netSenseAPI) destinationsync(db *gorm.DB) error {
-	url := "https://netsense.arptel.com/netsense/" // из API
-	req := "destinationsync/"                      // из API
-	myurl := url + req
-	AuthKey := "8e66ab96dd031d83308212f0567ae86b" // из API
-	timeZone := "Europe/Stockholm"                // из settings?
-	isLastRequest := "true"                       // из settings?
-	header := fmt.Sprintf(`<destinationRequest>
-	<authentication>
-	  <key>%s</key>
-	</authentication>
-	<parameters>
-	  <destinationList>`, AuthKey)
-	var l []destinationList
-	var body string
-	for i := range l {
-		d := fmt.Sprintf(`<list>
-			<destination>%s</destination>
-			<code>%s</code>
-			<alias>%s</alias>
-		  </list>`, l[i].destination, l[i].code, l[i].alias)
-		body = body + d
-	}
-	footer := fmt.Sprintf(`</destinationList>
-		</parameters>
-		<settings>
-		  <timeZone>%s</timeZone>
-		  <isLastRequest>%s</isLastRequest>
-		  <chainCode/>
-		</settings>
-	  </destinationRequest>`, timeZone, isLastRequest)
+// func (api netSenseAPI) destinationsync(db *gorm.DB) error {
+// 	url := "https://netsense.arptel.com/netsense/" // из API
+// 	req := "destinationsync/"                      // из API
+// 	myurl := url + req
+// 	AuthKey := "8e66ab96dd031d83308212f0567ae86b" // из API
+// 	timeZone := "Europe/Stockholm"                // из settings?
+// 	isLastRequest := "true"                       // из settings?
+// 	header := fmt.Sprintf(`<destinationRequest>
+// 	<authentication>
+// 	  <key>%s</key>
+// 	</authentication>
+// 	<parameters>
+// 	  <destinationList>`, AuthKey)
+// 	var l []destinationList
+// 	var body string
+// 	for i := range l {
+// 		d := fmt.Sprintf(`<list>
+// 			<destination>%s</destination>
+// 			<code>%s</code>
+// 			<alias>%s</alias>
+// 		  </list>`, l[i].destination, l[i].code, l[i].alias)
+// 		body = body + d
+// 	}
+// 	footer := fmt.Sprintf(`</destinationList>
+// 		</parameters>
+// 		<settings>
+// 		  <timeZone>%s</timeZone>
+// 		  <isLastRequest>%s</isLastRequest>
+// 		  <chainCode/>
+// 		</settings>
+// 	  </destinationRequest>`, timeZone, isLastRequest)
 
-	xmlbody := header + body + footer
-	resp, err := http.Post(myurl, "application/xml", strings.NewReader(xmlbody))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil
+// 	xmlbody := header + body + footer
+// 	resp, err := http.Post(myurl, "application/xml", strings.NewReader(xmlbody))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer resp.Body.Close()
+// 	return nil
 
-	//! если их серевер при запросе будет требовать в заголовке поле Accept,
-	//! то запрос буду составлять по другому
-	//   // or you can use []byte(`...`) and convert to Buffer later on
-	//   body := "<request> <parameters> <email>test@test.com</email> <password>test</password> </parameters> </request>"
+// 	//! если их серевер при запросе будет требовать в заголовке поле Accept,
+// 	//! то запрос буду составлять по другому
+// 	//   // or you can use []byte(`...`) and convert to Buffer later on
+// 	//   body := "<request> <parameters> <email>test@test.com</email> <password>test</password> </parameters> </request>"
 
-	//   client := &http.Client{}
-	//   // build a new request, but not doing the POST yet
-	//   req, err := http.NewRequest("POST", "http://localhost:8080/", bytes.NewBuffer([]byte(body)))
-	//   if err != nil {
-	// 	  fmt.Println(err)
-	//   }
-	//   // you can then set the Header here
-	//   // I think the content-type should be "application/xml" like json...
-	//   req.Header.Add("Content-Type", "application/xml; charset=utf-8")
-	//   // now POST it
-	//   resp, err := client.Do(req)
-	//   if err != nil {
-	// 	  fmt.Println(err)
-	//   }
-	//   fmt.Println(resp)
-}
+// 	//   client := &http.Client{}
+// 	//   // build a new request, but not doing the POST yet
+// 	//   req, err := http.NewRequest("POST", "http://localhost:8080/", bytes.NewBuffer([]byte(body)))
+// 	//   if err != nil {
+// 	// 	  fmt.Println(err)
+// 	//   }
+// 	//   // you can then set the Header here
+// 	//   // I think the content-type should be "application/xml" like json...
+// 	//   req.Header.Add("Content-Type", "application/xml; charset=utf-8")
+// 	//   // now POST it
+// 	//   resp, err := client.Do(req)
+// 	//   if err != nil {
+// 	// 	  fmt.Println(err)
+// 	//   }
+// 	//   fmt.Println(resp)
+// }
 
-func (api netSenseAPI) routesync(db *gorm.DB) error {
-	url := "https://netsense.arptel.com/netsense/" // из API
-	req := "routesync/"
-	myurl := url + req
-	AuthKey := "8e66ab96dd031d83308212f0567ae86b"
-	parentNode := " Parent Folder Path "                 //еще не знаю что это
-	dialerGroup := " Dialer Group Path "                 //еще не знаю что это
-	filter := "NO/GROUPED-ABC/DETAILED-ABC (Default NO)" //еще не знаю что это
-	header := fmt.Sprintf(`<routeRequest>
-	<authentication>
-	  <key>%s</key>
-	</authentication>
-	<settings>
-	  <parentNode>%s</parentNode> 
-	  <dialerGroup>%s</dialerGroup>
-	  <filter>%s</filter>
-	</settings>
-	<parameters>
-	  <routeList>`, AuthKey, parentNode, dialerGroup, filter)
-	var l []routeList
-	var body string
-	for i := range l {
-		d := fmt.Sprintf(`<list>
-        <externalId>%s</externalId>
-        <folder>%s</folder>
-        <carrier>%s</carrier>
-        <trunkGroup>%s</trunkGroup>
-        <trunk>%s</trunk>
-        <description>%s</description>
-        <dialerGroup>%s</dialerGroup>
-        <iac>%s</iac>
-        <nac>%s</nac>
-      </list>`, l[i].externalID, l[i].folder, l[i].carrier, l[i].trunkGroup, l[i].trunk, l[i].description, l[i].dialerGroup, l[i].iac, l[i].nac)
-		body = body + d
-	}
-	footer := "</routeList></parameters></routeRequest>"
+// func (api netSenseAPI) routesync(db *gorm.DB) error {
+// 	url := "https://netsense.arptel.com/netsense/" // из API
+// 	req := "routesync/"
+// 	myurl := url + req
+// 	AuthKey := "8e66ab96dd031d83308212f0567ae86b"
+// 	parentNode := " Parent Folder Path "                 //еще не знаю что это
+// 	dialerGroup := " Dialer Group Path "                 //еще не знаю что это
+// 	filter := "NO/GROUPED-ABC/DETAILED-ABC (Default NO)" //еще не знаю что это
+// 	header := fmt.Sprintf(`<routeRequest>
+// 	<authentication>
+// 	  <key>%s</key>
+// 	</authentication>
+// 	<settings>
+// 	  <parentNode>%s</parentNode>
+// 	  <dialerGroup>%s</dialerGroup>
+// 	  <filter>%s</filter>
+// 	</settings>
+// 	<parameters>
+// 	  <routeList>`, AuthKey, parentNode, dialerGroup, filter)
+// 	var l []routeList
+// 	var body string
+// 	for i := range l {
+// 		d := fmt.Sprintf(`<list>
+//         <externalId>%s</externalId>
+//         <folder>%s</folder>
+//         <carrier>%s</carrier>
+//         <trunkGroup>%s</trunkGroup>
+//         <trunk>%s</trunk>
+//         <description>%s</description>
+//         <dialerGroup>%s</dialerGroup>
+//         <iac>%s</iac>
+//         <nac>%s</nac>
+//       </list>`, l[i].externalID, l[i].folder, l[i].carrier, l[i].trunkGroup, l[i].trunk, l[i].description, l[i].dialerGroup, l[i].iac, l[i].nac)
+// 		body = body + d
+// 	}
+// 	footer := "</routeList></parameters></routeRequest>"
 
-	xmlbody := header + body + footer
+// 	xmlbody := header + body + footer
 
-	resp, err := http.Post(myurl, "application/xml", strings.NewReader(xmlbody))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil
-}
+// 	resp, err := http.Post(myurl, "application/xml", strings.NewReader(xmlbody))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer resp.Body.Close()
+// 	return nil
+// }

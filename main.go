@@ -103,9 +103,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	go checkOldTests(cfg, db)
-
 	go runService(cfg, db)
+
+	go checkOldTests(cfg, db)
 
 	waitForSignal()
 }

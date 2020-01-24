@@ -8,23 +8,23 @@ import (
 	"encoding/xml"
 )
 
-type destinationList struct {
-	destination string
-	code        string
-	alias       string
-}
+// type destinationList struct {
+// 	destination string
+// 	code        string
+// 	alias       string
+// }
 
-type routeList struct {
-	externalID  string // External ID
-	folder      string // Folder (OPTIONAL)
-	carrier     string // Carrier (OPTIONAL)
-	trunkGroup  string // Trunk Group (OPTIONAL)
-	trunk       string // Trunk Name /trunk string
-	description string // Description (OPTIONAL)
-	dialerGroup string // Dialer Group (OPTIONAL)
-	iac         string // IAC (OPTIONAL)
-	nac         string // NAC (OPTIONAL)
-}
+// type routeList struct {
+// 	externalID  string // External ID
+// 	folder      string // Folder (OPTIONAL)
+// 	carrier     string // Carrier (OPTIONAL)
+// 	trunkGroup  string // Trunk Group (OPTIONAL)
+// 	trunk       string // Trunk Name /trunk string
+// 	description string // Description (OPTIONAL)
+// 	dialerGroup string // Dialer Group (OPTIONAL)
+// 	iac         string // IAC (OPTIONAL)
+// 	nac         string // NAC (OPTIONAL)
+// }
 
 func (netSenseAPI) TableName() string {
 	return schemaPG + "CallingSys_API_NetSense"
@@ -45,25 +45,58 @@ type netSenseAPI struct {
 }
 
 type testInit struct {
-	XMLName xml.Name `xml:"callRequest"`
-	Auth    struct {
-		Key string `xml:"key"`
-	} `xml:"authentication"`
-	Parameters struct {
-		RouteList struct {
-			route string
-		} `xml:"routeList"`
-		DestinationList struct {
-			destination string
-		} `xml:"destinationList"`
-		CallTypeList struct {
-			callType string
-		} `xml:"callTypeList"`
-	} `xml:"parameters"`
-	Settings struct {
-		TimeZone     string `xml:"timeZone"`
-		WebServiceID int    `xml:"webServiceId"`
-	} `xml:"settings"`
+	XMLName    xml.Name `xml:"callRequest"`
+	Auth       auth
+	Parameters parameters
+	Settings   settings
+}
+
+type auth struct {
+	XMLName xml.Name `xml:"authentication"`
+	Key     string   `xml:"key"`
+}
+
+type settings struct {
+	XMLName      xml.Name `xml:"settings"`
+	TimeZone     string   `xml:"timeZone"`
+	WebServiceID int      `xml:"webServiceId"`
+}
+
+type parameters struct {
+	XMLName          xml.Name `xml:"parameters"`
+	RoutesList       routesList
+	DestinationsList destinationsList
+	CallTypeList     callTypeList
+}
+
+type routesList struct {
+	XMLName xml.Name `xml:"routeList"`
+	List    []routeList
+}
+
+type routeList struct {
+	XMLName xml.Name `xml:"list"`
+	Route   string   `xml:"route"`
+}
+
+type destinationsList struct {
+	XMLName xml.Name `xml:"destinationList"`
+	List    []destList
+}
+
+type destList struct {
+	XMLName     xml.Name `xml:"list"`
+	Destination string   `xml:"destination"`
+}
+
+type callTypeList struct {
+	XMLName xml.Name `xml:"callTypeList"`
+	List    []typeList
+}
+
+type typeList struct {
+	XMLName  xml.Name `xml:"list"`
+	CallType string   `xml:"callType"`
 }
 
 type responseTestInit struct {
@@ -77,6 +110,15 @@ type responseTestInit struct {
 	} `xml:"subStatus"`
 	callResult
 }
+
+// <subStatus>
+// 	<list>
+// 		<status>
+// 			<code>5001</code>
+// 			<message>Could not save call list</message>
+// 		</status>
+// 	</list>
+// </subStatus>
 
 type list struct {
 	XMLName xml.Name `xml:"list"`

@@ -27,7 +27,21 @@ import (
 	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
-func newTestBnumbers(ttn string, nit foundTest, nums []int64) testSetBnumbers {
+func (api *assureAPI) sysName(db *gorm.DB) string {
+	db.Take(api)
+	return api.SystemName
+}
+
+func (assureAPI) parseBNumbers(customBNumbers string) (nums []int64) {
+	bnums := strings.Split(customBNumbers, "\n")
+	for _, n := range bnums {
+		p, _ := strconv.ParseInt(strings.TrimPrefix(n, "+"), 10, 64)
+		nums = append(nums, p)
+	}
+	return
+}
+
+func (assureAPI) newTestBnumbers(ttn string, nit foundTest, nums []int64) testSetBnumbers {
 	var batches []batchBnumbers
 	for _, p := range nums {
 		b := batchBnumbers{
@@ -42,7 +56,7 @@ func newTestBnumbers(ttn string, nit foundTest, nums []int64) testSetBnumbers {
 	}
 }
 
-func newTestDestination(ttn string, nit foundTest) testSetDestination {
+func (assureAPI) newTestDestination(ttn string, nit foundTest) testSetDestination {
 	return testSetDestination{
 		NoOfExecutions: nit.TestCalls,
 		TestSetItems: []batchDestination{batchDestination{
@@ -53,16 +67,16 @@ func newTestDestination(ttn string, nit foundTest) testSetDestination {
 	}
 }
 
-func (assureAPI) buildNewTests(ttn string, nit foundTest) (interface{}, error) {
+func (api assureAPI) buildNewTests(ttn string, nit foundTest) (interface{}, error) {
 	if nit.BNumber != "" {
-		bnums := parseBNumbers(nit.BNumber)
-		return newTestBnumbers(ttn, nit, bnums), nil
+		bnums := api.parseBNumbers(nit.BNumber)
+		return api.newTestBnumbers(ttn, nit, bnums), nil
 	}
 
 	if nit.TestCalls == 0 {
 		return struct{}{}, errors.New("zero calls initialized")
 	}
-	return newTestDestination(ttn, nit), nil
+	return api.newTestDestination(ttn, nit), nil
 }
 
 func (api assureAPI) requestGET(r string) (*http.Response, error) {
@@ -97,11 +111,6 @@ func (api assureAPI) httpRequest(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	return res, nil
-}
-
-func (api *assureAPI) sysName(db *gorm.DB) string {
-	db.Take(api)
-	return api.SystemName
 }
 
 func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
