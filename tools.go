@@ -276,3 +276,33 @@ func parseBNumbers(customBNumbers string) (nums []int64) {
 	}
 	return
 }
+
+func iTestParseTime(strTime string) time.Time {
+	var t time.Time
+	if strTime == "" {
+		return t
+	}
+	st := strings.Split(strTime, ".")
+	t, _ = time.Parse("15:04:05", st[0])
+	return t
+}
+
+func assureParseTime(strTime string) time.Time {
+	var t time.Time
+	if strTime == "" {
+		return t
+	}
+	st := strings.Split(strTime, ".")
+	t, _ = time.Parse("2006-01-02T15:04:05", st[0])
+	return t
+}
+
+func netsenseParseTime(strTime string) time.Time {
+	var t time.Time
+	if strTime == "" {
+		return t
+	}
+	st := strings.Split(strTime, ".")
+	t, _ = time.Parse("2006-01-02 15:04:05", st[0])
+	return t
+}

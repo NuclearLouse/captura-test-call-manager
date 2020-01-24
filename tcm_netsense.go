@@ -7,7 +7,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -21,6 +24,27 @@ func (api *netSenseAPI) sysName(db *gorm.DB) string {
 	return api.SystemName
 }
 
+func (api netSenseAPI) requestPOST(r string, xmlStr []byte) (*http.Response, error) {
+	req, err := http.NewRequest("POST", api.URL+r, bytes.NewBuffer(xmlStr))
+	req.Header.Set("Content-Type", "application/xml")
+	if err != nil {
+		return nil, err
+	}
+	res, err := api.httpRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (api netSenseAPI) httpRequest(req *http.Request) (*http.Response, error) {
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (api netSenseAPI) prepareRequests(db *gorm.DB, interval int64) {
 	log.Info("Send preparatory requests for", api.SystemName)
 	log.Debug("API Settings", api)
@@ -31,7 +55,68 @@ func (api netSenseAPI) prepareRequests(db *gorm.DB, interval int64) {
 
 }
 
+func (api netSenseAPI) buildNewTests(nt foundTest) (testInit, error) {
+	var ti testInit
+	return ti, nil
+}
+
 func (api netSenseAPI) runNewTest(db *gorm.DB, nt foundTest) error {
+	var err error
+	for i := 0; i < nt.TestCalls; i++ {
+		newTest, err := api.buildNewTests(nt)
+		if err != nil {
+			//TODO: log.Error
+			continue
+		}
+		xmlBody, err := xml.Marshal(newTest)
+		if err != nil {
+			//TODO: log.Error
+			continue
+
+		}
+		log.Debug("Build request body: ", string(xmlBody))
+		response, err := api.requestPOST(api.TestInit, xmlBody)
+		if err != nil {
+			//TODO: log.Error
+			continue
+		}
+
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			//TODO: log.Error
+			continue
+		}
+
+		var newTests responseTestInit
+		if err := xml.Unmarshal(body, &newTests); err != nil {
+			//TODO: log.Error
+			continue
+		}
+		response.Body.Close()
+
+		log.Debug(string(body))
+
+		// if newTests.TestBatchID == 0 {
+		// 	err := errors.New("no return TestingSystemRequestID")
+		// 	testinfo := PurchOppt{TestingSystemRequestID: "0"}
+		// 	testinfo.failedTest(db, nit.RequestID, string(body))
+		// 	//TODO: log.Error
+		continue
+		// }
+
+		// newTestInfo := PurchOppt{
+		// 	TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
+		// 	RequestState:           2}
+		// if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
+		// //TODO: log.Error
+		//continue
+		// }
+		// log.Infof("Successful run test. TestID:%d", newTests.TestBatchID)
+
+	}
+	if err != nil {
+		return err // тут можно логировать всю пачку ошибок если перед этим собирать их в срез
+	}
 	return nil
 }
 

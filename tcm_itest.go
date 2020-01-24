@@ -617,20 +617,8 @@ func calcCoordinate(fileBeep, fileAnsw string) (float64, int, error) {
 		}
 		strOut := strings.Split(string(out), ",")
 		strTime := strings.Split(strOut[0], "Duration:")
-		t, err := parseTime(strings.TrimSpace(strTime[1]))
-		if err != nil {
-			return 0, 0, err
-		}
+		t := iTestParseTime(strings.TrimSpace(strTime[1]))
 		duration[i] = 60*t.Minute() + t.Second()
 	}
 	return float64(duration[0]), 500 * duration[0] / (duration[0] + duration[1]), nil
-}
-
-func parseTime(strTime string) (time.Time, error) {
-	st := strings.Split(strTime, ".")
-	t, err := time.Parse("15:04:05", st[0])
-	if err != nil {
-		return t, err
-	}
-	return t, nil
 }

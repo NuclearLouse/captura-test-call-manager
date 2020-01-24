@@ -53,7 +53,7 @@ func newTestDestination(ttn string, nit foundTest) testSetDestination {
 	}
 }
 
-func buildNewTests(ttn string, nit foundTest) (interface{}, error) {
+func (assureAPI) buildNewTests(ttn string, nit foundTest) (interface{}, error) {
 	if nit.BNumber != "" {
 		bnums := parseBNumbers(nit.BNumber)
 		return newTestBnumbers(ttn, nit, bnums), nil
@@ -116,7 +116,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 		ttn = "FAS"
 	}
 
-	newTest, err := buildNewTests(ttn, nit)
+	newTest, err := api.buildNewTests(ttn, nit)
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		log.Infof("Successfully insert data from table TestResults for system %s test_ID %s", sysname, testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
 		statistics = callsStatistics(db, testid)
-		statistics.TestedFrom = result.ParseTime(result.Created)
+		statistics.TestedFrom = assureParseTime(result.Created)
 		statistics.TestedByUser = lt.RequestByUser
 		statistics.TestResult = "OK"
 		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
@@ -316,7 +316,7 @@ func checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
 func (assureAPI) insertCallsInfo(db *gorm.DB, tr TestBatchResults, lt foundTest) error {
 	for i := range tr.QueryResult1 {
 		res := tr.QueryResult1[i]
-		callstart := tr.ParseTime(res.TestStartTime)
+		callstart := assureParseTime(res.TestStartTime)
 		callinfo := CallingSysTestResults{
 			AudioURL:                 strconv.Itoa(res.CallResultID),
 			CallID:                   strconv.Itoa(res.CallResultID),

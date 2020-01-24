@@ -6,11 +6,6 @@
 //
 package main
 
-import (
-	"strings"
-	"time"
-)
-
 //----------------------------------------------------------------------------------
 // Structs for prepare tests
 //----------------------------------------------------------------------------------
@@ -232,16 +227,6 @@ type batchBnumbers struct {
 //----------------------------------------------------------------------------------
 // Structs for obtain tests results
 //----------------------------------------------------------------------------------
-func (r *TestBatches) ParseTime(pt string) time.Time {
-	var t time.Time
-	if pt == "" {
-		return t
-	}
-	st := strings.Split(pt, ".")
-	t, _ = time.Parse("2006-01-02T15:04:05", st[0])
-	return t
-}
-
 type TestBatches struct {
 	TestBatchID    int    `json:"TestBatchID"`
 	StatusID       int    `json:"StatusID"`
@@ -253,16 +238,6 @@ type TestBatches struct {
 		Status   string `json:"Status"`
 		StatusID int    `json:"StatusID"`
 	} `json:"TestBatchItems"`
-}
-
-func (r *TestBatchResults) ParseTime(pt string) time.Time {
-	var t time.Time
-	if pt == "" {
-		return t
-	}
-	st := strings.Split(pt, ".")
-	t, _ = time.Parse("2006-01-02T15:04:05", st[0])
-	return t
 }
 
 type TestBatchResults struct {
