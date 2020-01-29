@@ -33,6 +33,10 @@ func (api *itestAPI) sysName(db *gorm.DB) string {
 	return api.SystemName
 }
 
+func (api itestAPI) checkAuth(db *gorm.DB) bool {
+	return true
+}
+
 func (api itestAPI) runNewTest(db *gorm.DB, fnt foundTest) error {
 	// тут нужен вызов промежуточной функции с преобразованиями значений Captura на
 	// значения нужные Assure.

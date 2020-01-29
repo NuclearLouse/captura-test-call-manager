@@ -20,6 +20,7 @@ type tester interface {
 	prepareRequests(*gorm.DB, int64)
 	runNewTest(*gorm.DB, foundTest) error
 	checkTestComplete(*gorm.DB, foundTest) error
+	// checkAuth(*gorm.DB) bool
 	// uploadResultFiles(*gorm.DB)
 }
 
@@ -38,15 +39,21 @@ func runService(cfg *Config, db *gorm.DB) {
 			continue
 		}
 		log.Info("Active test system", sysname)
+		// switch ts[i].checkAuth(db) {
+		// case true:
+		// 	if cfg.Application.PrepareRequest {
+		// 		go ts[i].prepareRequests(db, cfg.Application.IntervalPrepareTests)
+		// 	}
+		// 	go checkTestStatus(db, ts[i], cfg.Application.IntervalCheckTests)
 
+		// case false:
+		// 	log.Errorf(1, "Authentication failed! Check your internet or database connection and username or password for Test System %s", sysname)
+		// }
 		if cfg.Application.PrepareRequest {
 			go ts[i].prepareRequests(db, cfg.Application.IntervalPrepareTests)
 		}
-
 		go checkTestStatus(db, ts[i], cfg.Application.IntervalCheckTests)
-
-		// go ts[i].uploadResultFiles(db)
-
+		// !go ts[i].uploadResultFiles(db) эту функцию надо переделывать для itest
 	}
 }
 

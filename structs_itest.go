@@ -9,6 +9,12 @@ import (
 	"encoding/xml"
 )
 
+// <API>
+//     <Authentication>
+//         <Status>Failure</Status>
+//     </Authentication>
+// </API>
+
 type TestInitiation struct {
 	XMLName xml.Name `xml:"Test_Initiation"`
 	Test    test     `xml:"Test"`

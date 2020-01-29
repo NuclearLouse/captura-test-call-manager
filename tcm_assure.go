@@ -32,6 +32,22 @@ func (api *assureAPI) sysName(db *gorm.DB) string {
 	return api.SystemName
 }
 
+func (api assureAPI) checkAuth(db *gorm.DB) bool {
+	res, err := api.requestGET(api.Version)
+	if err != nil {
+		return false
+	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return false
+	}
+	if string(body) == "" {
+		return false
+	}
+	return true
+}
+
 func (assureAPI) parseBNumbers(customBNumbers string) (nums []int64) {
 	bnums := strings.Split(customBNumbers, "\n")
 	for _, n := range bnums {
@@ -243,7 +259,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
 			return err
 		}
-		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
+		log.Debug("Successfully update data to the table Purch_Oppt from test_ID", testid)
 		return nil
 	}
 	return nil

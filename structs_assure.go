@@ -6,6 +6,27 @@
 //
 package main
 
+func (assureAPI) TableName() string {
+	return schemaPG + "CallingSys_API_Assure"
+}
+
+type assureAPI struct {
+	SystemName        string `gorm:"size:50;foreignkey:CallingSys_Settings.SystemName"`
+	SystemID          int    `gorm:"type:int"`
+	URL               string `gorm:"size:100"`
+	User              string `gorm:"size:100"`
+	Pass              string `gorm:"size:100"`
+	StatusTests       string `gorm:"size:100"`
+	TestResults       string `gorm:"size:100"`
+	QueryResults      string `gorm:"size:100"`
+	Routes            string `gorm:"size:25"`
+	Destinations      string `gorm:"size:25"`
+	Nodes             string `gorm:"size:25"`
+	NewTestGet        string `gorm:"size:25"`
+	NodesCapabilities string `gorm:"size:25"`
+	Version           string `gorm:"size:25"`
+}
+
 //----------------------------------------------------------------------------------
 // Structs for prepare tests
 //----------------------------------------------------------------------------------
@@ -278,26 +299,6 @@ type batchResult struct {
 	SpeechFirstDetectedTime interface{} `json:"Speech First Detected Time"` //time.Time
 	SpeechLastDetectedTime  interface{} `json:"Speech Last Detected Time"`  //time.Time
 	APartyAudio             string      `json:"A Party Audio"`
-}
-
-func (assureAPI) TableName() string {
-	return schemaPG + "CallingSys_API_Assure"
-}
-
-type assureAPI struct {
-	SystemName        string `gorm:"size:50;foreignkey:CallingSys_Settings.SystemName"`
-	SystemID          int    `gorm:"type:int"`
-	URL               string `gorm:"size:100"`
-	User              string `gorm:"size:100"`
-	Pass              string `gorm:"size:100"`
-	StatusTests       string `gorm:"size:100"`
-	TestResults       string `gorm:"size:100"`
-	QueryResults      string `gorm:"size:100"`
-	Routes            string `gorm:"size:25"`
-	Destinations      string `gorm:"size:25"`
-	Nodes             string `gorm:"size:25"`
-	NewTestGet        string `gorm:"size:25"`
-	NodesCapabilities string `gorm:"size:25"`
 }
 
 func (assureRoutes) TableName() string {

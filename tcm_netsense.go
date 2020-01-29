@@ -24,6 +24,10 @@ func (api *netSenseAPI) sysName(db *gorm.DB) string {
 	return api.SystemName
 }
 
+func (api netSenseAPI) checkAuth(db *gorm.DB) bool {
+	return true
+}
+
 func (api netSenseAPI) requestPOST(r string, xmlStr []byte) (*http.Response, error) {
 	req, err := http.NewRequest("POST", api.URL+r, bytes.NewBuffer(xmlStr))
 	req.Header.Set("Content-Type", "application/xml")
@@ -90,6 +94,7 @@ func (api netSenseAPI) newTest(ttn string, nit foundTest) testInit {
 	if nit.BNumber != "" {
 		bnums = api.parseBNumbers(nit.BNumber)
 	}
+
 	for i := 0; i < nit.TestCalls; i++ {
 		dest := assureDestination(nit.DestinationID)
 		if nit.BNumber != "" && bnums[i] != "" {
@@ -117,8 +122,8 @@ func (api netSenseAPI) newTest(ttn string, nit foundTest) testInit {
 		},
 		// Default value
 		Settings: settings{
-			// TimeZone:     "Europe/Stockholm",
-			// WebServiceID: 1,
+			TimeZone:     nit.TimeZone,     //"Europe/Stockholm"
+			WebServiceID: nit.WebServiceID, //1
 		},
 	}
 }
@@ -187,7 +192,51 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	return nil
 }
 
-func (api netSenseAPI) checkTestComplete(db *gorm.DB, launchTest foundTest) error {
+func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
+	testid := lt.TestingSystemRequestID
+	s := status{
+		CallList: testid,
+	}
+	xmlBody, err := xml.Marshal(s)
+	if err != nil {
+		return err
+	}
+	// fmt.Println(string(xmlBody))
+
+	res, err := api.requestPOST(api.TestInitList, xmlBody)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+	// fmt.Println(string(body))
+	var ts statusResponse
+	if err := xml.Unmarshal(body, &ts); err != nil {
+		return err
+	}
+	var statistics PurchOppt
+	switch ts.CallListResponseArray.CallLogResponses.Status {
+	case "END":
+		// начинаю забор результатов для ts.CallListResponseArray.CallLogResponses.CallListLogID
+	case "RUNNING":
+		log.Debug("Wait. The test is not over yet for test_ID", testid)
+		return nil
+	default:
+		log.Info("Failed test for test_ID", testid)
+		statistics.RequestState = 2
+		statistics.TestedUntil = time.Now()
+		statistics.TestComment = ts.CallListResponseArray.CallLogResponses.Status
+		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
+			return err
+		}
+		log.Debug("Successfully update data to the table Purch_Oppt from test_ID", testid)
+		return nil
+	}
+
 	return nil
 }
 

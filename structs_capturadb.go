@@ -131,6 +131,8 @@ type foundTest struct {
 	SystemName             string
 	TestType               testtype
 	TestComment            string
+	TimeZone               string
+	WebServiceID           int
 }
 
 func (PurchStatuses) TableName() string {
