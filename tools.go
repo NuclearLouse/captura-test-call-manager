@@ -104,7 +104,8 @@ func waveFormImage(nameFile string, x int) ([]byte, error) {
 	}
 
 	// drawing a vertical red line indicating the beginning of the answer
-	if strings.HasPrefix(nameFile, "out_") {
+	// if strings.HasPrefix(nameFile, "out_") {
+	if x != 0 {
 		if err := drawVLine(pathPngFile, x); err != nil {
 			return nil, err
 		}

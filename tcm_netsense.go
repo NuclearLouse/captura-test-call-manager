@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -26,6 +27,18 @@ func (api *netSenseAPI) sysName(db *gorm.DB) string {
 
 func (api netSenseAPI) checkAuth(db *gorm.DB) bool {
 	return true
+}
+
+func (api netSenseAPI) requestGET(r string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", api.URL+r, nil)
+	if err != nil {
+		return nil, err
+	}
+	res, err := api.httpRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 func (api netSenseAPI) requestPOST(r string, xmlStr []byte) (*http.Response, error) {
@@ -194,7 +207,7 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 
 func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	testid := lt.TestingSystemRequestID
-	s := status{
+	s := getStatus{
 		CallList: testid,
 	}
 	xmlBody, err := xml.Marshal(s)
@@ -214,7 +227,7 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		return err
 	}
 	// fmt.Println(string(body))
-	var ts statusResponse
+	var ts testStatus
 	if err := xml.Unmarshal(body, &ts); err != nil {
 		return err
 	}
@@ -222,6 +235,43 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	switch ts.CallListResponseArray.CallLogResponses.Status {
 	case "END":
 		// начинаю забор результатов для ts.CallListResponseArray.CallLogResponses.CallListLogID
+		log.Debug("The end test for test_ID", testid)
+		request := fmt.Sprintf("%s/%s/1/%s", api.TestInit, api.AuthKey, ts.CallListResponseArray.CallLogResponses.CallListLogID)
+		res, err := api.requestGET(request)
+		log.Debugf("Sending request TestResults for system Assure test_ID %s", testid)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+		log.Infof("Successful response to the request TestResults for system %s test_ID %s", sysname, testid)
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+
+		var callsinfo testResult
+		if err := xml.Unmarshal(body, &callsinfo); err != nil {
+			return err
+		}
+		start := time.Now()
+		log.Debugf("Start transaction insert into the table TestResults for system Netsense test_id %s", testid)
+		testedFrom, err := api.insertCallsInfo(db, callsinfo, lt)
+		if err != nil {
+			return err
+		}
+		log.Infof("Successfully insert data from table TestResults for system Netsense test_ID %s", testid)
+		log.Debug("Elapsed time insert transaction", time.Since(start))
+
+		statistics = callsStatistics(db, testid)
+		statistics.TestedFrom = netsenseParseTime(testedFrom)
+		statistics.TestedByUser = lt.RequestByUser
+		statistics.TestResult = "OK"
+		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
+			return err
+		}
+		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
+		go api.checkPresentAudioFile(db, callsinfo)
+		return nil
 	case "RUNNING":
 		log.Debug("Wait. The test is not over yet for test_ID", testid)
 		return nil
@@ -240,8 +290,116 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	return nil
 }
 
-func (api netSenseAPI) uploadResultFiles(db *gorm.DB) {
-	return
+func (api netSenseAPI) insertCallsInfo(db *gorm.DB, tr testResult, lt foundTest) (string, error) {
+	for i := range tr.Result.List {
+		if i == 0 {
+			testedFrom := tr.Result.List[i].CallResult.CallStart.Value
+		}
+		res := tr.Result.List[i].CallResult
+		resCLI := tr.Result.List[i].CallResultCLI
+		resFAS := tr.Result.List[i].CallResultFAS
+		callinfo := CallingSysTestResults{
+			AudioURL:                 res.AudioURL.Value,
+			CallID:                   res.CallResultID.Value,
+			CallListID:               lt.TestingSystemRequestID,
+			TestSystem:               lt.SystemID,
+			CallType:                 res.CallType.Value,
+			Destination:              res.Destination.Value,
+			CallStart:                netsenseParseTime(res.CallStart.Value),
+			CallComplete:             netsenseParseTime(res.CallComplete.Value),
+			CallDuration:             res.CallDuration.Value,
+			RingDuration:             res.RingingDuration.Value,
+			PDD:                      res.Pdd.Value,
+			BNumber:                  res.PhoneNumber.Value,
+			BNumberDialed:            res.DialedPhoneNumber.Value,
+			CallingNumber:            res.CallingNumber.Value,
+			Route:                    res.Route.Value,
+			CauseCodeID:              res.CauseCodeID.Value,
+			CliDetectedCallingNumber: resCLI.CLIDetectedCallingNumber.Value,
+			CliResult:                resCLI.CLIStatus.Value, //or resCLI.CLIResult.Value
+			FasResult:                resFAS.FasResult.Value,
+			Status:                   res.Status.Value,
+		}
+		if err := db.Create(&callinfo).Error; err != nil {
+			return testedFrom, err
+		}
+	}
+	return testedFrom, nil
+}
+
+func (api netSenseAPI) checkPresentAudioFile(db *gorm.DB, tr testResult) {
+	for _, l := range tr.Result.List {
+		audioURL := l.CallResult.AudioURL.Value
+		callID := l.CallResult.CallResultID.Value
+		if audioURL == "" {
+			log.Info("Not present audio file for call_id", callID)
+			if err := insertEmptyFiles(db, callID); err != nil {
+				log.Errorf(401, "Cann't update data row about empty request for call_id %s|%v", callID, err)
+			}
+			continue
+		}
+		log.Infof("Download AudioURL:%s for call_id:%s", audioURL, callID)
+		request = fmt.Sprintf("%s/%s/%s", api.AudioFile, api.AuthKey, audioURL)
+		// nameFile := strings.Split(audioURL, "/")[1]
+		if err := saveWavFile(request, callID); err != nil {
+			log.Errorf(402, "Cann't download the audio file for call_id:%s|%v", callID, err)
+			continue
+		}
+		log.Infof("Succeseffuly download audio file for call_id:", callID)
+		// cWav := body
+		// ! Тут нужна функция вычисления координаты х, вертикальной черты ответа на звонок
+		//! Пока она по умолчанию = 0
+		cImg, err := waveFormImage(callID, 0)
+		if err != nil || len(cImg) == 0 {
+			log.Errorf(403, "Cann't create waveform image file for call_id %s|%v", callID, err)
+			cImg = []byte("C&V:Cann't create waveform image file")
+			// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
+			continue
+		}
+		log.Info("Created image PNG file for call_id", callID)
+		listDeleteFiles := []string{
+			srvTmpFolder + callID + ".wav",
+			srvTmpFolder + callID + ".png",
+			srvTmpFolder + callID + ".bmp",
+		}
+
+		callsinfo := CallingSysTestResults{
+			DataLoaded:  true,
+			AudioFile:   body,
+			AudioGraph:  cImg,
+			ConnectTime: l.CallResult.ConnectTime,
+			CallType:    l.CallResult.CallType,
+		}
+		if err = updateCallsInfo(db, callID, callsinfo); err != nil {
+			log.Errorf(404, "Cann't insert WAV file into table for system Assure call_id %s|%v", callID, err)
+			continue
+		}
+		log.Info("Insert WAV and IMG file for callid", callID)
+
+		if err = deleteFiles(listDeleteFiles); err != nil {
+			log.Errorf(405, "Cann't delete some files for call_id %s|%v", callID, err)
+		}
+	}
+}
+
+func saveWavFile(request, nameFile string) error {
+	res, err := requestGET(request)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+	if len(body) == 0 {
+		return errors.New("empty audio file")
+	}
+	if err := ioutil.WriteFile(srvTmpFolder+nameFile+".wav", body, 0666); err != nil {
+		return err
+	}
+	return nil
 }
 
 // func (api netSenseAPI) destinationsync(db *gorm.DB) error {
@@ -284,26 +442,26 @@ func (api netSenseAPI) uploadResultFiles(db *gorm.DB) {
 // 	defer resp.Body.Close()
 // 	return nil
 
-// 	//! если их серевер при запросе будет требовать в заголовке поле Accept,
-// 	//! то запрос буду составлять по другому
-// 	//   // or you can use []byte(`...`) and convert to Buffer later on
-// 	//   body := "<request> <parameters> <email>test@test.com</email> <password>test</password> </parameters> </request>"
+//! если их серевер при запросе будет требовать в заголовке поле Accept,
+//! то запрос буду составлять по другому
+//   or you can use []byte(`...`) and convert to Buffer later on
+//   body := "<request> <parameters> <email>test@test.com</email> <password>test</password> </parameters> </request>"
 
-// 	//   client := &http.Client{}
-// 	//   // build a new request, but not doing the POST yet
-// 	//   req, err := http.NewRequest("POST", "http://localhost:8080/", bytes.NewBuffer([]byte(body)))
-// 	//   if err != nil {
-// 	// 	  fmt.Println(err)
-// 	//   }
-// 	//   // you can then set the Header here
-// 	//   // I think the content-type should be "application/xml" like json...
-// 	//   req.Header.Add("Content-Type", "application/xml; charset=utf-8")
-// 	//   // now POST it
-// 	//   resp, err := client.Do(req)
-// 	//   if err != nil {
-// 	// 	  fmt.Println(err)
-// 	//   }
-// 	//   fmt.Println(resp)
+//   client := &http.Client{}
+// build a new request, but not doing the POST yet
+//   req, err := http.NewRequest("POST", "http://localhost:8080/", bytes.NewBuffer([]byte(body)))
+//   if err != nil {
+// 	  fmt.Println(err)
+//   }
+// you can then set the Header here
+// I think the content-type should be "application/xml" like json...
+//   req.Header.Add("Content-Type", "application/xml; charset=utf-8")
+// now POST it
+//   resp, err := client.Do(req)
+//   if err != nil {
+// 	  fmt.Println(err)
+//   }
+//   fmt.Println(resp)
 // }
 
 // func (api netSenseAPI) routesync(db *gorm.DB) error {

@@ -10,10 +10,15 @@
 * 00009 - Cann't create table
 * 00010 - Could not add individual tests to the list of tests found for system _sysname
 ---
-**Netsense system errors, file: netsense.go**
+**Netsense system errors, file: tcm_netsense.go**
 * 00400 - reserve
+* 00401 - Cann't update data row about empty request for call_id
+* 00402 - Cann't download the audio file for call_id
+* 00403 - Cann't create waveform PNG image file for call_id
+* 00404 - Cann't insert WAV file into table for call_id
+* 00405 - Cann't delete some files for call_id
 ---
-**iTest system errors, file: itest.go**
+**iTest system errors, file: tcm_itest.go**
 * 00500 - Failed to get a response to the reques _requestName
 * 00501 - Could not insert data from response _requestName
 * 00502 - Cann't obtain rows for DataLoaded=false
@@ -26,7 +31,7 @@
 * 00509 - Cann't get the coordinate of the beginning of the answer for call_id
 * 00510 - Cann't concatenate beep and answer MP3 files for call_id
 ---
-**Assure system errors, file: assure.go**
+**Assure system errors, file: tcm_assure.go**
 * 00600 - Failed to get a response to the request _requestName
 * 00601 - Could not insert data from response _requestName
 * 00602 - Cann't obtain rows for DataLoaded=false

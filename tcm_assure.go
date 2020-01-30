@@ -186,7 +186,6 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 }
 
 func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
-	sysname := api.SystemName
 	testid := lt.TestingSystemRequestID
 	log.Debugf("Sending a request Complete_Test system %s for test_id %s", sysname, testid)
 	res, err := api.requestGET(api.StatusTests + testid)
@@ -232,11 +231,11 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			return err
 		}
 		start := time.Now()
-		log.Debugf("Start transaction insert into the table TestResults for system %s test_id %s", sysname, testid)
+		log.Debugf("Start transaction insert into the table TestResults for system Assure test_id %s", testid)
 		if err := api.insertCallsInfo(db, callsinfo, lt); err != nil {
 			return err
 		}
-		log.Infof("Successfully insert data from table TestResults for system %s test_ID %s", sysname, testid)
+		log.Infof("Successfully insert data from table TestResults for system Assure test_ID %s", testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
 		statistics = callsStatistics(db, testid)
 		statistics.TestedFrom = assureParseTime(result.Created)
@@ -246,7 +245,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			return err
 		}
 		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
-		go checkPresentAudioFile(db, callsinfo)
+		go api.checkPresentAudioFile(db, callsinfo)
 		return nil
 	case 5, 6, 7:
 		// 5 - Cancelling
@@ -265,7 +264,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	return nil
 }
 
-func checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
+func (api assureAPI) checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
 	for i := range tr.QueryResult1 {
 		callID := fmt.Sprintf("%d", tr.QueryResult1[i].CallResultID)
 
@@ -334,7 +333,6 @@ func checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
 		if err = deleteFiles(listDeleteFiles); err != nil {
 			log.Errorf(611, "Cann't delete some files for call_id %s|%v", callID, err)
 		}
-
 	}
 }
 

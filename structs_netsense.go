@@ -26,22 +26,6 @@ import (
 // 	nac         string // NAC (OPTIONAL)
 // }
 
-type status struct {
-	XMLName  xml.Name `xml:"callListIdRequest"`
-	CallList string   `xml:"callListIdList"`
-}
-
-type statusResponse struct {
-	XMLName               xml.Name `xml:"callListResponseIdArray"`
-	CallListResponseArray struct {
-		CallListID       string `xml:"callListId"`
-		CallLogResponses struct {
-			CallListLogID string `xml:"callListLogId"`
-			Status        string `xml:"status"`
-		} `xml:"callLogResponses"`
-	} `xml:"callListResponseArray"`
-}
-
 func (netSenseAPI) TableName() string {
 	return schemaPG + "CallingSys_API_NetSense"
 }
@@ -130,25 +114,332 @@ type responseTestInit struct {
 	callResult
 }
 
-// <subStatus>
-// 	<list>
-// 		<status>
-// 			<code>5001</code>
-// 			<message>Could not save call list</message>
-// 		</status>
-// 	</list>
-// </subStatus>
+type list struct {
+	XMLName xml.Name `xml:"list"`
+	Status  status
+}
 
-// type list struct {
-// 	XMLName xml.Name `xml:"list"`
-// 	Status  status
-// }
+type status struct {
+	XMLName xml.Name `xml:"status"`
+	Code    string   `xml:"code"`
+	Message string   `xml:"message"`
+}
 
-// type status struct {
-// 	XMLName xml.Name `xml:"status"`
-// 	Code    string   `xml:"code"`
-// 	Message string   `xml:"message"`
-// }
+type testStatus struct {
+	XMLName               xml.Name `xml:"callListResponseIdArray"`
+	CallListResponseArray struct {
+		CallListID       string `xml:"callListId"`
+		CallLogResponses struct {
+			CallListLogID string `xml:"callListLogId"`
+			Status        string `xml:"status"`
+		} `xml:"callLogResponses"`
+	} `xml:"callListResponseArray"`
+}
+
+type getStatus struct {
+	XMLName  xml.Name `xml:"callListIdRequest"`
+	CallList string   `xml:"callListIdList"`
+}
+
+type testResult struct {
+	XMLName xml.Name `xml:"response"`
+	Text    string   `xml:",chardata"`
+	Result  struct {
+		Text string `xml:",chardata"`
+		List []struct {
+			Text       string `xml:",chardata"`
+			CallResult struct {
+				Text      string `xml:",chardata"`
+				AlertTime struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"alertTime"`
+				AudioURL struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"audioUrl"`
+				CallComplete struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callComplete"`
+				CallCompleteMs struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callCompleteMs"`
+				CallDuration struct {
+					Text   string  `xml:",chardata"`
+					Format string  `xml:"format"`
+					Value  float64 `xml:"value"`
+				} `xml:"callDuration"`
+				CallListLogID struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callListLogId"`
+				CallListRepeatNr struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callListRepeatNr"`
+				CallListRowNr struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callListRowNr"`
+				CallResultID struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callResultId"`
+				CallStart struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callStart"`
+				CallStartMs struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callStartMs"`
+				CallType struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callType"`
+				CallingNumber struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callingNumber"`
+				CauseCodeID struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"causeCodeId"`
+				CauseLocationID struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"causeLocationId"`
+				ConnectTime struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"connectTime"`
+				Country struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"country"`
+				Destination struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"destination"`
+				DialedPhoneNumber struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"dialedPhoneNumber"`
+				Dialer struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"dialer"`
+				DialerGroup struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"dialerGroup"`
+				DisconnectTime struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"disconnectTime"`
+				DtmfDetected struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"dtmfDetected"`
+				ExternalBatchID struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"externalBatchId"`
+				ExternalCallID struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"externalCallId"`
+				Label struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"label"`
+				LastDigitSent struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"lastDigitSent"`
+				MatchPercentage struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"matchPercentage"`
+				MediaStartTime struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"mediaStartTime"`
+				OntheFlyPhoneNumberName struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"ontheFlyPhoneNumberName"`
+				Pdd struct {
+					Text   string  `xml:",chardata"`
+					Format string  `xml:"format"`
+					Value  float64 `xml:"value"`
+				} `xml:"pdd"`
+				PddAlternate struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"pddAlternate"`
+				PhoneNumber struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"phoneNumber"`
+				PhoneNumberName struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"phoneNumberName"`
+				PhoneNumberType struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"phoneNumberType"`
+				Region struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"region"`
+				RingingDuration struct {
+					Text   string  `xml:",chardata"`
+					Format string  `xml:"format"`
+					Value  float64 `xml:"value"`
+				} `xml:"ringingDuration"`
+				Route struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"route"`
+				RouteFolder struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"routeFolder"`
+				SipCallID struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"sipCallId"`
+				Status struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"status"`
+				StatusCode struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"statusCode"`
+				ToneDetection struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"toneDetection"`
+				Username struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"username"`
+				WebServiceID struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"webServiceId"`
+			} `xml:"callResult"`
+			CallResultCLI struct {
+				Text                     string `xml:",chardata"`
+				CLIDetectedCallingNumber struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"CLIDetectedCallingNumber"`
+				CLIResult struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"CLIResult"`
+				CLIStatus struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"CLIStatus"`
+				CLIStatusCode struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"CLIStatusCode"`
+				CLIType struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"CLIType"`
+				CallResultID struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callResultId"`
+			} `xml:"callResultCLI"`
+			CallResultFAS struct {
+				Text         string `xml:",chardata"`
+				CallResultID struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"callResultId"`
+				FasResult struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"fasResult"`
+				FasStatus struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"fasStatus"`
+				FasStatusCode struct {
+					Text   string `xml:",chardata"`
+					Format string `xml:"format"`
+					Value  string `xml:"value"`
+				} `xml:"fasStatusCode"`
+			} `xml:"callResultFAS"`
+		} `xml:"list"`
+	} `xml:"result"`
+	Status struct {
+		Text    string `xml:",chardata"`
+		Code    string `xml:"code"`
+		Message string `xml:"message"`
+	} `xml:"status"`
+}
 
 // type callResult struct {
 // 	XMLName           xml.Name `xml:"callResult"`
