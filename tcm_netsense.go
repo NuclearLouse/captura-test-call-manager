@@ -87,12 +87,12 @@ func (netSenseAPI) parseBNumbers(customBNumbers string) (nums []string) {
 	return
 }
 
-func assureRout(routID int) string {
+func netsenseRout(routID int) string {
 	// обращение к базе по routID и возврат его имени
 	return "route name"
 }
 
-func assureDestination(destID int) string {
+func netsenseDestination(destID int) string {
 	// обращение к базе по destID и возврат его имени
 	return "destination name"
 }
@@ -109,11 +109,11 @@ func (api netSenseAPI) newTest(ttn string, nit foundTest) testInit {
 	}
 
 	for i := 0; i < nit.TestCalls; i++ {
-		dest := assureDestination(nit.DestinationID)
+		dest := netsenseDestination(nit.DestinationID)
 		if nit.BNumber != "" && bnums[i] != "" {
 			dest = bnums[i]
 		}
-		r := routeList{Route: assureRout(nit.TestSysRouteID)}
+		r := routeList{Route: netsenseRout(nit.TestSysRouteID)}
 		d := destList{Destination: dest}
 		t := typeList{CallType: ttn}
 		routes = append(routes, r)
@@ -169,7 +169,7 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 
 	}
 	log.Debug("Build request body: ", string(xmlBody))
-	response, err := api.requestPOST(api.TestInit, xmlBody)
+	response, err := api.requestPOST(api.TestInitList, xmlBody)
 	if err != nil {
 		return err
 	}

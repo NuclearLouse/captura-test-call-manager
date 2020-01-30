@@ -47,82 +47,106 @@ type netSenseAPI struct {
 	Version          string `gorm:"size:50"`
 }
 
-type testInit struct {
-	XMLName    xml.Name `xml:"callRequest"`
-	Auth       auth
-	Parameters parameters
-	Settings   settings
-}
+// type testInit struct {
+// 	XMLName    xml.Name `xml:"callRequest"`
+// 	Auth       auth
+// 	Parameters parameters
+// 	Settings   settings
+// }
 
-type auth struct {
-	XMLName xml.Name `xml:"authentication"`
-	Key     string   `xml:"key"`
-}
+// type auth struct {
+// 	XMLName xml.Name `xml:"authentication"`
+// 	Key     string   `xml:"key"`
+// }
 
-type settings struct {
-	XMLName      xml.Name `xml:"settings"`
-	TimeZone     string   `xml:"timeZone"`
-	WebServiceID int      `xml:"webServiceId"`
-}
+// type settings struct {
+// 	XMLName      xml.Name `xml:"settings"`
+// 	TimeZone     string   `xml:"timeZone"`
+// 	WebServiceID int      `xml:"webServiceId"`
+// }
 
-type parameters struct {
-	XMLName          xml.Name `xml:"parameters"`
-	RoutesList       routesList
-	DestinationsList destinationsList
-	CallTypeList     callTypeList
-}
+// type parameters struct {
+// 	XMLName          xml.Name `xml:"parameters"`
+// 	RoutesList       routesList
+// 	DestinationsList destinationsList
+// 	CallTypeList     callTypeList
+// }
 
-type routesList struct {
-	XMLName xml.Name `xml:"routeList"`
-	List    []routeList
-}
+// type routesList struct {
+// 	XMLName xml.Name `xml:"routeList"`
+// 	List    []routeList
+// }
 
-type routeList struct {
-	XMLName xml.Name `xml:"list"`
-	Route   string   `xml:"route"`
-}
+// type routeList struct {
+// 	XMLName xml.Name `xml:"list"`
+// 	Route   string   `xml:"route"`
+// }
 
-type destinationsList struct {
-	XMLName xml.Name `xml:"destinationList"`
-	List    []destList
-}
+// type destinationsList struct {
+// 	XMLName xml.Name `xml:"destinationList"`
+// 	List    []destList
+// }
 
-type destList struct {
-	XMLName     xml.Name `xml:"list"`
-	Destination string   `xml:"destination"`
-}
+// type destList struct {
+// 	XMLName     xml.Name `xml:"list"`
+// 	Destination string   `xml:"destination"`
+// }
 
-type callTypeList struct {
-	XMLName xml.Name `xml:"callTypeList"`
-	List    []typeList
-}
+// type callTypeList struct {
+// 	XMLName xml.Name `xml:"callTypeList"`
+// 	List    []typeList
+// }
 
-type typeList struct {
-	XMLName  xml.Name `xml:"list"`
-	CallType string   `xml:"callType"`
-}
+// type typeList struct {
+// 	XMLName  xml.Name `xml:"list"`
+// 	CallType string   `xml:"callType"`
+// }
 
-type responseTestInit struct {
-	XMLName xml.Name `xml:"response"`
-	Status  struct {
-		Code    string `xml:"code"`
-		Message string `xml:"message"`
-	} `xml:"status"`
-	SubStatus struct {
-		list
-	} `xml:"subStatus"`
-	callResult
-}
+// type responseTestInit struct {
+// 	XMLName xml.Name `xml:"response"`
+// 	Status  struct {
+// 		Code    string `xml:"code"`
+// 		Message string `xml:"message"`
+// 	} `xml:"status"`
+// 	SubStatus struct {
+// 		list
+// 	} `xml:"subStatus"`
+// 	callResult
+// }
 
-type list struct {
-	XMLName xml.Name `xml:"list"`
-	Status  status
-}
+// type list struct {
+// 	XMLName xml.Name `xml:"list"`
+// 	Status  status
+// }
 
-type status struct {
-	XMLName xml.Name `xml:"status"`
-	Code    string   `xml:"code"`
-	Message string   `xml:"message"`
+// type status struct {
+// 	XMLName xml.Name `xml:"status"`
+// 	Code    string   `xml:"code"`
+// 	Message string   `xml:"message"`
+// }
+
+type testIit struct {
+	XMLName        xml.Name `xml:"callListRequest"`
+	Authentication struct {
+		Key string `xml:"key"`
+	} `xml:"authentication"`
+	ParametersList struct {
+		CallTypeList struct {
+			List struct {
+				CallType string `xml:"callType"`
+			} `xml:"list"`
+		} `xml:"callTypeList"`
+		DestinationList struct {
+			List []struct {
+				Destination string `xml:"destination"`
+			} `xml:"list"`
+		} `xml:"destinationList"`
+		RouteList struct {
+			List struct {
+				Route string `xml:"route"`
+			} `xml:"list"`
+		} `xml:"routeList"`
+	} `xml:"parametersList"`
 }
 
 type testStatus struct {
