@@ -246,7 +246,7 @@ func labelEmptyBMP(label string) []byte {
 		Dst:  img,
 		Src:  image.NewUniform(color.RGBA{255, 0, 0, 255}),
 		Face: basicfont.Face7x13,
-		Dot:  fixed.Point26_6{fixed.Int26_6(x * 64), fixed.Int26_6(y * 64)},
+		Dot:  fixed.Point26_6{X: fixed.Int26_6(x * 64), Y: fixed.Int26_6(y * 64)},
 	}
 	d.DrawString(label)
 

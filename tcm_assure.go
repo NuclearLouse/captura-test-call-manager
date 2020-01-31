@@ -265,17 +265,17 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 }
 
 func (api assureAPI) checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
-	for i := range tr.QueryResult1 {
-		callID := fmt.Sprintf("%d", tr.QueryResult1[i].CallResultID)
+	for _, res := range tr.QueryResult1 {
+		callID := fmt.Sprintf("%d", res.CallResultID)
 
-		if tr.QueryResult1[i].CallDuration == 0 || tr.QueryResult1[i].APartyAudio == "" {
+		if res.CallDuration == 0 || res.APartyAudio == "" {
 			log.Info("Not present audio file for call_id", callID)
 			if err := insertEmptyFiles(db, callID); err != nil {
 				log.Errorf(603, "Cann't update data row about empty request for call_id %s|%v", callID, err)
 			}
 			continue
 		}
-		content, err := hex.DecodeString(tr.QueryResult1[i].APartyAudio)
+		content, err := hex.DecodeString(res.APartyAudio)
 		if err != nil {
 			log.Errorf(605, "Error decode field APartyAudio for call_id %s|%v", callID, err)
 			continue
@@ -300,7 +300,9 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
 		}
 		log.Info("Created WAV file for call_id", callID)
 
-		cImg, err := waveFormImage(callID, 0)
+		x, _ := strconv.Atoi(fmt.Sprintf("%.f", 500*res.BConnectTime/res.BDisconnectTime))
+
+		cImg, err := waveFormImage(callID, x)
 		if err != nil || len(cImg) == 0 {
 			log.Errorf(609, "Cann't create waveform image file for call_id %s|%v", callID, err)
 			cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
@@ -316,7 +318,7 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
 			srvTmpFolder + callID + ".png",
 			srvTmpFolder + callID + ".bmp",
 		}
-		//
+
 		callsinfo := CallingSysTestResults{
 			DataLoaded: true,
 			AudioFile:  cWav,
@@ -335,8 +337,7 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
 }
 
 func (assureAPI) insertCallsInfo(db *gorm.DB, tr TestBatchResults, lt foundTest) error {
-	for i := range tr.QueryResult1 {
-		res := tr.QueryResult1[i]
+	for _, res := range tr.QueryResult1 {
 		callstart := assureParseTime(res.TestStartTime)
 		callinfo := CallingSysTestResults{
 			AudioURL:                 strconv.Itoa(res.CallResultID),

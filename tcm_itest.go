@@ -514,48 +514,48 @@ func (itestAPI) insertCallsInfo(db *gorm.DB, ci CallsInfo, ti foundTest) error {
 		return err
 	}
 	var ringDuration, callDuration float64
-	for i := range ci.Calls {
-		prefixAndBnumber := strings.Split(ci.Calls[i].Destination, "#")
-		switch ci.Calls[i].Call {
+	for _, call := range ci.Calls {
+		prefixAndBnumber := strings.Split(call.Destination, "#")
+		switch call.Call {
 		case "NA":
 			callDuration = -1
 		default:
-			callDuration, err = strconv.ParseFloat(ci.Calls[i].Call, 64)
+			callDuration, err = strconv.ParseFloat(call.Call, 64)
 			if err != nil {
 				callDuration = -1
 			}
 		}
-		switch ci.Calls[i].Ring {
+		switch call.Ring {
 		case "NA":
 			ringDuration = -1
 		default:
-			ringDuration, err = strconv.ParseFloat(ci.Calls[i].Ring, 64)
+			ringDuration, err = strconv.ParseFloat(call.Ring, 64)
 			if err != nil {
 				ringDuration = -1
 			}
 		}
 		callinfo := CallingSysTestResults{
 			AudioURL:                 ti.TestComment,
-			CallID:                   ci.Calls[i].CallID,
+			CallID:                   call.CallID,
 			CallListID:               ci.TestOverview.TestID, //ti.TestingSystemRequestID,
 			TestSystem:               ti.SystemID,
 			CallType:                 ci.TestOverview.Type,
-			Destination:              ci.Calls[i].Destination,
-			CallStart:                time.Unix(ci.Calls[i].Start, 0),
-			CallComplete:             time.Unix(int64(ci.Calls[i].End), 0),
+			Destination:              call.Destination,
+			CallStart:                time.Unix(call.Start, 0),
+			CallComplete:             time.Unix(int64(call.End), 0),
 			CallDuration:             callDuration,
 			RingDuration:             ringDuration,
-			PDD:                      ci.Calls[i].PDD,
+			PDD:                      call.PDD,
 			BNumber:                  prefixAndBnumber[1],
-			BNumberDialed:            ci.Calls[i].Destination,
-			CallingNumber:            ci.Calls[i].Source,
+			BNumberDialed:            call.Destination,
+			CallingNumber:            call.Source,
 			Route:                    ci.TestOverview.Supplier, //ti.RouteCarrier,
-			CauseCodeID:              ci.Calls[i].ResultCode,
-			Status:                   ci.Calls[i].LastCode,
-			CliDetectedCallingNumber: ci.Calls[i].CLI,
-			CliResult:                ci.Calls[i].Result,
-			FasResult:                ci.Calls[i].FAS,
-			VoiceQualityMos:          ci.Calls[i].MOS,
+			CauseCodeID:              call.ResultCode,
+			Status:                   call.LastCode,
+			CliDetectedCallingNumber: call.CLI,
+			CliResult:                call.Result,
+			FasResult:                call.FAS,
+			VoiceQualityMos:          call.MOS,
 		}
 
 		if err := tx.Create(&callinfo).Error; err != nil {

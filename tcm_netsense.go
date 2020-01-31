@@ -335,9 +335,9 @@ func (api netSenseAPI) checkPresentAudioFile(db *gorm.DB, tr testResult) {
 			continue
 		}
 		log.Info("Succeseffuly download audio file for call_id:", callID)
-		// ! Тут нужна функция вычисления координаты х, вертикальной черты ответа на звонок
-		//! Пока она по умолчанию = 0
-		cImg, err := waveFormImage(callID, 0)
+
+		x, _ := strconv.Atoi(fmt.Sprintf("%.f", 500*l.CallResult.ConnectTime.Value/(l.CallResult.ConnectTime.Value+l.CallResult.CallDuration.Value)))
+		cImg, err := waveFormImage(callID, x)
 		if err != nil || len(cImg) == 0 {
 			log.Errorf(403, "Cann't create waveform image file for call_id %s|%v", callID, err)
 			cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
