@@ -187,12 +187,12 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 
 func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	testid := lt.TestingSystemRequestID
-	log.Debugf("Sending a request Complete_Test system %s for test_id %s", sysname, testid)
+	log.Debugf("Sending a request Complete_Test system %s for test_id %s", api.SystemName, testid)
 	res, err := api.requestGET(api.StatusTests + testid)
 	if err != nil {
 		return err
 	}
-	log.Debugf("Successful response to the request Complete_Test for system %s test_ID %s", sysname, testid)
+	log.Debugf("Successful response to the request Complete_Test for system %s test_ID %s", api.SystemName, testid)
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return err
@@ -216,11 +216,11 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		log.Debug("The end test for test_ID", testid)
 		req := fmt.Sprintf("%sTest+Details+:+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, testid)
 		res, err := api.requestGET(req)
-		log.Debugf("Sending request TestResults for system %s test_ID %s", sysname, testid)
+		log.Debugf("Sending request TestResults for system %s test_ID %s", api.SystemName, testid)
 		if err != nil {
 			return err
 		}
-		log.Infof("Successful response to the request TestResults for system %s test_ID %s", sysname, testid)
+		log.Infof("Successful response to the request TestResults for system %s test_ID %s", api.SystemName, testid)
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			return err
@@ -303,7 +303,7 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
 		cImg, err := waveFormImage(callID, 0)
 		if err != nil || len(cImg) == 0 {
 			log.Errorf(609, "Cann't create waveform image file for call_id %s|%v", callID, err)
-			cImg = []byte("C&V:Cann't create waveform image file")
+			cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
 			// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
 			continue
 		}
@@ -316,13 +316,11 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
 			srvTmpFolder + callID + ".png",
 			srvTmpFolder + callID + ".bmp",
 		}
-
+		//
 		callsinfo := CallingSysTestResults{
-			DataLoaded:  true,
-			AudioFile:   cWav,
-			AudioGraph:  cImg,
-			ConnectTime: tr.QueryResult1[i].PGAD,
-			CallType:    tr.QueryResult1[i].TestType,
+			DataLoaded: true,
+			AudioFile:  cWav,
+			AudioGraph: cImg,
 		}
 		if err = updateCallsInfo(db, callID, callsinfo); err != nil {
 			log.Errorf(610, "Cann't insert WAV file into table for system Assure call_id %s|%v", callID, err)

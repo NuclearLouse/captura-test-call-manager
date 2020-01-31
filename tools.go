@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
@@ -18,9 +19,11 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/image/bmp"
-
 	"github.com/jinzhu/gorm"
+	"golang.org/x/image/bmp"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/math/fixed"
 	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
@@ -218,16 +221,38 @@ func updateCallsInfo(db *gorm.DB, callID string, callsinfo CallingSysTestResults
 }
 
 func insertEmptyFiles(db *gorm.DB, callID string) error {
+	label := "C&V:test system didn't provide audio files"
 	callsinfo := CallingSysTestResults{
 		DataLoaded:  true,
-		AudioFile:   []byte("C&V:test system didn't provide audio files"),
-		AudioGraph:  []byte("C&V:test system didn't provide audio files"),
+		AudioFile:   []byte(label),
+		AudioGraph:  labelEmptyBMP(label),
 		ConnectTime: 0,
 	}
 	if err := updateCallsInfo(db, callID, callsinfo); err != nil {
 		return err
 	}
 	return nil
+}
+
+func labelEmptyBMP(label string) []byte {
+	img := image.NewRGBA(image.Rect(0, 0, 500, 100))
+	for x := 0; x < 500; x++ {
+		for y := 0; y < 100; y++ {
+			img.Set(x, y, color.White)
+		}
+	}
+	x, y := 85, 50
+	d := &font.Drawer{
+		Dst:  img,
+		Src:  image.NewUniform(color.RGBA{255, 0, 0, 255}),
+		Face: basicfont.Face7x13,
+		Dot:  fixed.Point26_6{fixed.Int26_6(x * 64), fixed.Int26_6(y * 64)},
+	}
+	d.DrawString(label)
+
+	var buff bytes.Buffer
+	bmp.Encode(&buff, img)
+	return buff.Bytes()
 }
 
 // CallsStatistics returns a structure for adding statistics to the PurchOppt table

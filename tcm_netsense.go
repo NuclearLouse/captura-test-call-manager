@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -94,58 +95,37 @@ func netsenseRout(routID int) string {
 
 func netsenseDestination(destID int) string {
 	// обращение к базе по destID и возврат его имени
-	return "destination name"
+	return "+" + strconv.Itoa(destID)
 }
 
 func (api netSenseAPI) newTest(ttn string, nit foundTest) testInit {
 	var (
-		routes    []routeList
-		destes    []destList
-		calltypes []typeList
-		bnums     []string
+		bnums []string
+		dests []listDestination
 	)
 	if nit.BNumber != "" {
 		bnums = api.parseBNumbers(nit.BNumber)
 	}
-
 	for i := 0; i < nit.TestCalls; i++ {
 		dest := netsenseDestination(nit.DestinationID)
 		if nit.BNumber != "" && bnums[i] != "" {
 			dest = bnums[i]
 		}
-		r := routeList{Route: netsenseRout(nit.TestSysRouteID)}
-		d := destList{Destination: dest}
-		t := typeList{CallType: ttn}
-		routes = append(routes, r)
-		destes = append(destes, d)
-		calltypes = append(calltypes, t)
+		destination := listDestination{Destination: dest}
+		dests = append(dests, destination)
 	}
 	return testInit{
-		Auth: auth{Key: api.AuthKey},
-		Parameters: parameters{
-			RoutesList: routesList{
-				List: routes,
-			},
-			DestinationsList: destinationsList{
-				List: destes,
-			},
+		Authentication: authentication{Key: api.AuthKey},
+		ParametersList: parametersList{
 			CallTypeList: callTypeList{
-				List: calltypes,
+				List: listCallType{CallType: ttn},
 			},
-		},
-		// Default value
-		Settings: settings{
-			TimeZone:     nit.TimeZone,     //"Europe/Stockholm"
-			WebServiceID: nit.WebServiceID, //1
+			RouteList: routeList{
+				ListRoute: listRoute{Route: netsenseRout(nit.TestSysRouteID)},
+			},
+			DestinationList: destinationList{List: dests},
 		},
 	}
-}
-
-func (api netSenseAPI) buildNewTests(ttn string, nit foundTest) (testInit, error) {
-	if nit.TestCalls == 0 {
-		return testInit{}, errors.New("zero calls initialized")
-	}
-	return api.newTest(ttn, nit), nil
 }
 
 func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
@@ -179,29 +159,29 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 		return err
 	}
 
-	var newTests responseTestInit
+	var newTests testInitResponse
 	if err := xml.Unmarshal(body, &newTests); err != nil {
 		return err
 	}
 	response.Body.Close()
 
-	log.Debug(string(body))
+	switch newTests.CallListResponseArray.Status.Code {
+	case "200":
+		newTestInfo := PurchOppt{
+			TestingSystemRequestID: newTests.CallListResponseArray.ResponseID,
+			RequestState:           2}
+		if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
+			return err
+		}
+	case "400":
+		message := fmt.Sprintf("Bad Request. Error code:%s. %s\n", newTests.CallListResponseArray.SubStatus.List.Status.Code, newTests.CallListResponseArray.SubStatus.List.Status.Message)
+		err := errors.New(message)
+		testinfo := PurchOppt{TestingSystemRequestID: "0"}
+		testinfo.failedTest(db, nit.RequestID, message)
+		return err
+	}
 
-	// if newTests.TestBatchID == 0 {
-	// 	err := errors.New("no return TestingSystemRequestID")
-	// 	testinfo := PurchOppt{TestingSystemRequestID: "0"}
-	// 	testinfo.failedTest(db, nit.RequestID, string(body))
-	// return err
-	// }
-
-	// newTestInfo := PurchOppt{
-	// 	TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
-	// 	RequestState:           2}
-	// if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
-	//return err
-	// }
-	// log.Infof("Successful run test. TestID:%d", newTests.TestBatchID)
-
+	log.Info("Successful run test. TestID:", newTests.CallListResponseArray.ResponseID)
 	return nil
 }
 
@@ -233,6 +213,10 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	}
 	var statistics PurchOppt
 	switch ts.CallListResponseArray.CallLogResponses.Status {
+	case "RUNNING":
+		//TODO: Может нужен какой-то таймаут для запущенных тестов, некоторые могут висеть бесконечно.
+		log.Debug("Wait. The test status is RUNNING for test_ID:", testid)
+		return nil
 	case "END":
 		// начинаю забор результатов для ts.CallListResponseArray.CallLogResponses.CallListLogID
 		log.Debug("The end test for test_ID", testid)
@@ -243,11 +227,18 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			return err
 		}
 		defer res.Body.Close()
-		log.Infof("Successful response to the request TestResults for system %s test_ID %s", sysname, testid)
+
+		log.Infof("Successful response to the request TestResults for system Assure test_ID %s", testid)
+
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			return err
 		}
+
+		//! If need, save response xml file for debug
+		// if err := ioutil.WriteFile("test_"+testid+".xml", body, 0666); err != nil {
+		// 	return err
+		// }
 
 		var callsinfo testResult
 		if err := xml.Unmarshal(body, &callsinfo); err != nil {
@@ -272,10 +263,8 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
 		go api.checkPresentAudioFile(db, callsinfo)
 		return nil
-	case "RUNNING":
-		log.Debug("Wait. The test is not over yet for test_ID", testid)
-		return nil
 	default:
+		// ?Most likely this situation will never arise
 		log.Info("Failed test for test_ID", testid)
 		statistics.RequestState = 2
 		statistics.TestedUntil = time.Now()
@@ -284,16 +273,15 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			return err
 		}
 		log.Debug("Successfully update data to the table Purch_Oppt from test_ID", testid)
-		return nil
 	}
-
 	return nil
 }
 
 func (api netSenseAPI) insertCallsInfo(db *gorm.DB, tr testResult, lt foundTest) (string, error) {
+	var testedFrom string
 	for i := range tr.Result.List {
 		if i == 0 {
-			testedFrom := tr.Result.List[i].CallResult.CallStart.Value
+			testedFrom = tr.Result.List[i].CallResult.CallStart.Value
 		}
 		res := tr.Result.List[i].CallResult
 		resCLI := tr.Result.List[i].CallResultCLI
@@ -304,6 +292,7 @@ func (api netSenseAPI) insertCallsInfo(db *gorm.DB, tr testResult, lt foundTest)
 			CallListID:               lt.TestingSystemRequestID,
 			TestSystem:               lt.SystemID,
 			CallType:                 res.CallType.Value,
+			ConnectTime:              res.ConnectTime.Value,
 			Destination:              res.Destination.Value,
 			CallStart:                netsenseParseTime(res.CallStart.Value),
 			CallComplete:             netsenseParseTime(res.CallComplete.Value),
@@ -331,7 +320,7 @@ func (api netSenseAPI) checkPresentAudioFile(db *gorm.DB, tr testResult) {
 	for _, l := range tr.Result.List {
 		audioURL := l.CallResult.AudioURL.Value
 		callID := l.CallResult.CallResultID.Value
-		if audioURL == "" {
+		if audioURL == "" || strings.Split(audioURL, "/")[1] == "" {
 			log.Info("Not present audio file for call_id", callID)
 			if err := insertEmptyFiles(db, callID); err != nil {
 				log.Errorf(401, "Cann't update data row about empty request for call_id %s|%v", callID, err)
@@ -339,20 +328,19 @@ func (api netSenseAPI) checkPresentAudioFile(db *gorm.DB, tr testResult) {
 			continue
 		}
 		log.Infof("Download AudioURL:%s for call_id:%s", audioURL, callID)
-		request = fmt.Sprintf("%s/%s/%s", api.AudioFile, api.AuthKey, audioURL)
-		// nameFile := strings.Split(audioURL, "/")[1]
-		if err := saveWavFile(request, callID); err != nil {
+		request := fmt.Sprintf("%s/%s/%s", api.AudioFile, api.AuthKey, audioURL)
+		cWav, err := api.saveWavFile(request, callID)
+		if err != nil {
 			log.Errorf(402, "Cann't download the audio file for call_id:%s|%v", callID, err)
 			continue
 		}
-		log.Infof("Succeseffuly download audio file for call_id:", callID)
-		// cWav := body
+		log.Info("Succeseffuly download audio file for call_id:", callID)
 		// ! Тут нужна функция вычисления координаты х, вертикальной черты ответа на звонок
 		//! Пока она по умолчанию = 0
 		cImg, err := waveFormImage(callID, 0)
 		if err != nil || len(cImg) == 0 {
 			log.Errorf(403, "Cann't create waveform image file for call_id %s|%v", callID, err)
-			cImg = []byte("C&V:Cann't create waveform image file")
+			cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
 			// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
 			continue
 		}
@@ -364,11 +352,9 @@ func (api netSenseAPI) checkPresentAudioFile(db *gorm.DB, tr testResult) {
 		}
 
 		callsinfo := CallingSysTestResults{
-			DataLoaded:  true,
-			AudioFile:   body,
-			AudioGraph:  cImg,
-			ConnectTime: l.CallResult.ConnectTime,
-			CallType:    l.CallResult.CallType,
+			DataLoaded: true,
+			AudioFile:  cWav,
+			AudioGraph: cImg,
 		}
 		if err = updateCallsInfo(db, callID, callsinfo); err != nil {
 			log.Errorf(404, "Cann't insert WAV file into table for system Assure call_id %s|%v", callID, err)
@@ -382,24 +368,27 @@ func (api netSenseAPI) checkPresentAudioFile(db *gorm.DB, tr testResult) {
 	}
 }
 
-func saveWavFile(request, nameFile string) error {
-	res, err := requestGET(request)
+func (api netSenseAPI) saveWavFile(request, nameFile string) ([]byte, error) {
+	res, err := api.requestGET(request)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	if strings.Contains(res.Header[`Content-Type`][0], "text/html") {
+		return nil, errors.New("not present audio file, Content-Type:text/html")
 	}
 	if len(body) == 0 {
-		return errors.New("empty audio file")
+		return nil, errors.New("empty audio file")
 	}
 	if err := ioutil.WriteFile(srvTmpFolder+nameFile+".wav", body, 0666); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return body, nil
 }
 
 // func (api netSenseAPI) destinationsync(db *gorm.DB) error {

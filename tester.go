@@ -27,7 +27,7 @@ type tester interface {
 func runService(cfg *Config, db *gorm.DB) {
 	log.Info("*************Start service*************")
 
-	ts := []tester{&netSenseAPI{}, &itestAPI{}, &assureAPI{}}
+	ts := []tester{&itestAPI{}, &assureAPI{}} //&netSenseAPI{},
 	for i := range ts {
 		sysname := ts[i].sysName(db)
 		sys, err := isEnabled(db, true, sysname)
@@ -127,7 +127,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 			case 1:
 				log.Infof("Initiated new test %s for system %s", t.TestType, t.SystemName)
 				if err := api.runNewTest(db, t); err != nil {
-					log.Errorf(7, "Could not start a new test %s for system %s|%v", t.TestingSystemRequestID, t.SystemName, err)
+					log.Errorf(7, "Could not start a new test for system %s|%v", t.SystemName, err)
 					newTestInfo := PurchOppt{TestingSystemRequestID: "-1"}
 					newTestInfo.failedTest(db, t.RequestID, "Could not start a new test:"+err.Error())
 					continue

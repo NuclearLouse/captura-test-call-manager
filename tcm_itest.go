@@ -369,8 +369,9 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 				}
 				log.Info("Decode mp3 file to WAV for call_id", rows[i].CallID)
 				cImg, err = waveFormImage(nameFileBeep, 0)
-				if err != nil {
+				if err != nil || len(cImg) == 0 {
 					log.Errorf(506, "Cann't create waveform PNG image file for call_id %s|%v", rows[i].CallID, err)
+					cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
 					continue
 				}
 				log.Info("Created image PNG file for call_id", rows[i].CallID)
@@ -387,7 +388,6 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 					AudioFile:   cWav,
 					AudioGraph:  cImg,
 					ConnectTime: 0,
-					CallType:    rows[i].CallType,
 				}
 				if err = updateCallsInfo(db, rows[i].CallID, callsinfo); err != nil {
 					log.Errorf(507, "Cann't insert WAV file into table for system %s call_id %s|%v", api.SystemName, rows[i].CallID, err)
@@ -464,8 +464,9 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 				}
 				log.Info("Decod mp3 files to WAV for call_id", rows[i].CallID)
 				cImg, err = waveFormImage(nameFile, x)
-				if err != nil {
+				if err != nil || len(cImg) == 0 {
 					log.Errorf(506, "Cann't create waveform PNG image file for call_id %s|%v", rows[i].CallID, err)
+					cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
 					continue
 				}
 				log.Info("Created image PNG file for call_id", rows[i].CallID)
@@ -482,7 +483,6 @@ func (api itestAPI) uploadResultFiles(db *gorm.DB) {
 					AudioFile:   cWav,
 					AudioGraph:  cImg,
 					ConnectTime: connectTime,
-					CallType:    rows[i].CallType,
 				}
 				if err = updateCallsInfo(db, rows[i].CallID, callsinfo); err != nil {
 					log.Errorf(507, "Cann't insert WAV file into table for call_id %s|%v", rows[i].CallID, err)
@@ -537,10 +537,10 @@ func (itestAPI) insertCallsInfo(db *gorm.DB, ci CallsInfo, ti foundTest) error {
 		callinfo := CallingSysTestResults{
 			AudioURL:                 ti.TestComment,
 			CallID:                   ci.Calls[i].CallID,
-			CallListID:               ti.TestingSystemRequestID,
+			CallListID:               ci.TestOverview.TestID, //ti.TestingSystemRequestID,
 			TestSystem:               ti.SystemID,
-			CallType:                 string(ti.TestType),
-			Destination:              ti.Destination,
+			CallType:                 ci.TestOverview.Type,
+			Destination:              ci.Calls[i].Destination,
 			CallStart:                time.Unix(ci.Calls[i].Start, 0),
 			CallComplete:             time.Unix(int64(ci.Calls[i].End), 0),
 			CallDuration:             callDuration,
@@ -549,7 +549,7 @@ func (itestAPI) insertCallsInfo(db *gorm.DB, ci CallsInfo, ti foundTest) error {
 			BNumber:                  prefixAndBnumber[1],
 			BNumberDialed:            ci.Calls[i].Destination,
 			CallingNumber:            ci.Calls[i].Source,
-			Route:                    ti.RouteCarrier,
+			Route:                    ci.TestOverview.Supplier, //ti.RouteCarrier,
 			CauseCodeID:              ci.Calls[i].ResultCode,
 			Status:                   ci.Calls[i].LastCode,
 			CliDetectedCallingNumber: ci.Calls[i].CLI,
