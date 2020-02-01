@@ -1,4 +1,4 @@
-// netsense.go
+// tcm_netsense.go
 //
 // The file contains the basic functions necessary for the operation of the "Netsense" system.
 //
@@ -98,7 +98,7 @@ func netsenseDestination(destID int) string {
 	return "+" + strconv.Itoa(destID)
 }
 
-func (api netSenseAPI) newTest(ttn string, nit foundTest) testInit {
+func (api netSenseAPI) buildNewTest(ttn string, nit foundTest) testInit {
 	var (
 		bnums []string
 		dests []listDestination
@@ -141,7 +141,7 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 		ttn = "Voice"
 	}
 
-	newTest := api.newTest(ttn, nit)
+	newTest := api.buildNewTest(ttn, nit)
 
 	xmlBody, err := xml.Marshal(newTest)
 	if err != nil {

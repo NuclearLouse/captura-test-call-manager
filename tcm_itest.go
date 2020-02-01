@@ -1,4 +1,4 @@
-// itest.go
+// tcm_itest.go
 //
 // The file contains the functions necessary for the operation of the "iTest" system.
 //
@@ -281,6 +281,7 @@ func (api itestAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			log.Info("Wait. The test has not yet begun for test_ID", testid)
 		}
 	}()
+	//TODO: Здесь надо получать и аудио УРЛ и вставлять его в таблицу
 	re1 := regexp.MustCompile(`<Calls_Total>[0-9]+`)
 	fs1 := re1.FindAllString(string(body), -1)
 	ss1 := strings.Split(fs1[0], "<Calls_Total>")

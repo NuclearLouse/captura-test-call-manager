@@ -1,4 +1,4 @@
-// assure.go
+// tcm_assure.go
 //
 // The file contains the functions necessary for the operation of the "Assure" system.
 //
@@ -170,15 +170,19 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 
 	if newTests.TestBatchID == 0 {
 		err := errors.New("no return TestingSystemRequestID")
-		testinfo := PurchOppt{TestingSystemRequestID: "0"}
-		testinfo.failedTest(db, nit.RequestID, string(body))
+		testinfo := PurchOppt{TestingSystemRequestID: "0",
+			TestedUntil: time.Now(),
+			TestComment: string(body)}
+		testinfo.updateTestInfo(db, nit.RequestID)
+		// testinfo.failedTest(db, nit.RequestID, string(body))
 		return err
 	}
 
-	newTestInfo := PurchOppt{
+	testinfo := PurchOppt{
 		TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
 		RequestState:           2}
-	if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
+	if err := testinfo.updateTestInfo(db, nit.RequestID); err != nil {
+		// if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
 		return err
 	}
 	log.Infof("Successful run test. TestID:%d", newTests.TestBatchID)
@@ -241,6 +245,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		statistics.TestedFrom = assureParseTime(result.Created)
 		statistics.TestedByUser = lt.RequestByUser
 		statistics.TestResult = "OK"
+
 		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
 			return err
 		}

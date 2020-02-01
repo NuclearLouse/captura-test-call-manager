@@ -201,9 +201,9 @@ func deleteOldTestInfo(db *gorm.DB) error {
 	return db.Exec(query).Error
 }
 
-func isEnabled(db *gorm.DB, enb bool, name string) (CallingSysSettings, error) {
+func isEnabled(db *gorm.DB, name string) (CallingSysSettings, error) {
 	var sys CallingSysSettings
-	if err := db.Where(`"Enabled"=? AND "SystemName"=?`, enb, name).Find(&sys).Error; err != nil {
+	if err := db.Where(`"Enabled"='true' AND "SystemName"=?`, name).Find(&sys).Error; err != nil {
 		return sys, err
 	}
 	return sys, nil
@@ -291,6 +291,10 @@ func (po PurchOppt) failedTest(db *gorm.DB, request int, comment string) {
 	po.TestedUntil = time.Now()
 	po.TestComment = comment
 	db.Model(&po).Where(`"RequestID"=?`, request).Update(po)
+}
+
+func (po PurchOppt) updateTestInfo(db *gorm.DB, id int) error {
+	return db.Model(&po).Where(`"RequestID"=?`, id).Update(po).Error
 }
 
 func iTestParseTime(strTime string) time.Time {

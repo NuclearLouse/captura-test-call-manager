@@ -27,10 +27,10 @@ type tester interface {
 func runService(cfg *Config, db *gorm.DB) {
 	log.Info("*************Start service*************")
 
-	ts := []tester{&itestAPI{}, &assureAPI{}} //&netSenseAPI{},
+	ts := []tester{&itestAPI{}, &netSenseAPI{}, &assureAPI{}}
 	for i := range ts {
 		sysname := ts[i].sysName(db)
-		sys, err := isEnabled(db, true, sysname)
+		sys, err := isEnabled(db, sysname)
 		if err != nil {
 			continue
 		}
@@ -60,7 +60,10 @@ func runService(cfg *Config, db *gorm.DB) {
 func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 	for {
 		sysName := api.sysName(db)
-
+		// po="Purch_Oppt"
+		// ps="Purch_Statuses"
+		// ss="CallingSys_Settings"
+		// rt="CallingSys_RouteList"
 		query := fmt.Sprintf(`SELECT po."Request_by_User",
 		po."RequestID",
 		COALESCE(po."TestingSystemRequestID",'') "TestingSystemRequestID",
