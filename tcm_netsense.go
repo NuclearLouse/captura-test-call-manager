@@ -152,7 +152,6 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 		testinfo := PurchOppt{
 			TestingSystemRequestID: newTests.CallListResponseArray.ResponseID,
 			RequestState:           2}
-		// if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
 		if err := testinfo.updateTestInfo(db, nit.RequestID); err != nil {
 			return err
 		}
@@ -163,7 +162,6 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 			TestingSystemRequestID: "0",
 			TestedUntil:            time.Now(),
 			TestComment:            message}
-		// testinfo.failedTest(db, nit.RequestID, message)
 		testinfo.updateTestInfo(db, nit.RequestID)
 		return err
 	}
@@ -205,7 +203,6 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		log.Debug("Wait. The test status is RUNNING for test_ID:", testid)
 		return nil
 	case "END":
-		// начинаю забор результатов для ts.CallListResponseArray.CallLogResponses.CallListLogID
 		log.Debug("The end test for test_ID", testid)
 		request := fmt.Sprintf("%s/%s/1/%s", api.TestInit, api.AuthKey, ts.CallListResponseArray.CallLogResponses.CallListLogID)
 		res, err := api.requestGET(request)

@@ -51,7 +51,7 @@ func runService(cfg *Config, db *gorm.DB) {
 		// 	go ts[i].prepareRequests(db, cfg.Application.IntervalPrepareTests)
 		// }
 		go checkTestStatus(db, ts[i], cfg.Application.IntervalCheckTests)
-		// !go ts[i].uploadResultFiles(db) эту функцию надо переделывать для itest
+
 	}
 }
 

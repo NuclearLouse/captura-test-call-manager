@@ -7,22 +7,17 @@
 package main
 
 import (
-	"bufio"
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jinzhu/gorm"
-	"golang.org/x/net/html/charset"
-
 	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
@@ -41,26 +36,6 @@ func (api itestAPI) requestPOST(req string) (*http.Response, error) {
 		return nil, err
 	}
 	return res, nil
-}
-
-func ignoreWrongNode(resp io.ReadCloser) (io.Reader, error) {
-	scan := bufio.NewScanner(resp)
-	var i int
-	var newResp string = `<?xml version="1.0" encoding="UTF-8" ?>`
-	for scan.Scan() {
-		i++
-		if i == 1 || i == 3 || i == 12 {
-			continue
-		}
-		str := strings.ReplaceAll(scan.Text(), "&", "&amp;")
-		newResp = newResp + fmt.Sprintf("%s", strings.TrimSpace(str))
-	}
-
-	if err := scan.Err(); err != nil {
-		return nil, err
-	}
-
-	return strings.NewReader(newResp), nil
 }
 
 func (api itestAPI) runNewTest(db *gorm.DB, fnt foundTest) error {
@@ -445,61 +420,4 @@ func (itestAPI) insertCallsInfo(db *gorm.DB, tr testResultItest, ti foundTest) e
 		}
 	}
 	return nil
-}
-
-func xmlDecoder(res *http.Response) *xml.Decoder {
-	decoder := xml.NewDecoder(res.Body)
-	decoder.Strict = false
-	decoder.CharsetReader = charset.NewReaderLabel
-	return decoder
-}
-
-func createFile(res *http.Response, nameFile string) (bool, error) {
-	filepath := srvTmpFolder + nameFile
-	file, err := os.Create(filepath)
-	if err != nil {
-		return false, err
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, res.Body)
-	if err != nil {
-		return false, err
-	}
-	_, err = ioutil.ReadFile(filepath)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func concatMP3files(fileBeep, fileAnsw string) (string, error) {
-	pathBeep := srvTmpFolder + fileBeep + ".mp3"
-	pathAnsw := srvTmpFolder + fileAnsw + ".mp3"
-	pathOut := srvTmpFolder + "out_" + fileAnsw + ".mp3"
-	com := fmt.Sprintln(fmt.Sprintf(ffmpegConcatMP3, pathBeep, pathAnsw, pathOut))
-	_, err := execCommand(com)
-	if err != nil {
-		return "", err
-	}
-	return "out_" + fileAnsw, nil
-}
-
-func calcCoordinate(fileBeep, fileAnsw string) (float64, int, error) {
-	var files [2]string
-	files[0] = srvTmpFolder + fileBeep + ".mp3"
-	files[1] = srvTmpFolder + fileAnsw + ".mp3"
-	var duration [2]int
-	for i := 0; i < len(files); i++ {
-		com := fmt.Sprintln(fmt.Sprintf(ffmpegDuration, files[i]))
-		out, err := execCommand(com)
-		if err != nil {
-			return 0, 0, err
-		}
-		strOut := strings.Split(string(out), ",")
-		strTime := strings.Split(strOut[0], "Duration:")
-		t := iTestParseTime(strings.TrimSpace(strTime[1]))
-		duration[i] = 60*t.Minute() + t.Second()
-	}
-	return float64(duration[0]), 500 * duration[0] / (duration[0] + duration[1]), nil
 }

@@ -8,15 +8,12 @@ package main
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -150,7 +147,6 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 			TestedUntil: time.Now(),
 			TestComment: string(body)}
 		testinfo.updateTestInfo(db, nit.RequestID)
-		// testinfo.failedTest(db, nit.RequestID, string(body))
 		return err
 	}
 
@@ -158,7 +154,6 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 		TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
 		RequestState:           2}
 	if err := testinfo.updateTestInfo(db, nit.RequestID); err != nil {
-		// if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
 		return err
 	}
 	log.Infof("Successful run test. TestID:%d", newTests.TestBatchID)
@@ -345,42 +340,5 @@ func (assureAPI) insertCallsInfo(db *gorm.DB, tr testResultAssure, lt foundTest)
 			return err
 		}
 	}
-	return nil
-}
-
-func createGZ(content []byte, nameFile string) error {
-	fileGZ := srvTmpFolder + nameFile + ".amr.gz"
-	file, err := os.Create(fileGZ)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	_, err = file.Write(content)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func uncompressGZ(name string) error {
-	pathGZ := srvTmpFolder + name + ".amr.gz"
-	gzipFile, err := os.Open(pathGZ)
-	if err != nil {
-		return err
-	}
-	gzipReader, err := gzip.NewReader(gzipFile)
-	if err != nil {
-		return err
-	}
-	unzipNameFile := strings.Split(pathGZ, ".gz")
-	outfileWriter, err := os.Create(unzipNameFile[0])
-	if err != nil {
-		return err
-	}
-	io.Copy(outfileWriter, gzipReader)
-	outfileWriter.Close()
-	gzipReader.Close()
-	gzipFile.Close()
-
 	return nil
 }

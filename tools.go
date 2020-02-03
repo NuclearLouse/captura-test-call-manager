@@ -5,7 +5,10 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"compress/gzip"
+	"encoding/xml"
 	"fmt"
 	"image"
 	"image/color"
@@ -13,6 +16,7 @@ import (
 	"image/png"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -24,6 +28,7 @@ import (
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/math/fixed"
+	"golang.org/x/net/html/charset"
 	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
@@ -321,4 +326,118 @@ func netsenseParseTime(strTime string) time.Time {
 	st := strings.Split(strTime, ".")
 	t, _ = time.Parse("2006-01-02 15:04:05", st[0])
 	return t
+}
+
+func createGZ(content []byte, nameFile string) error {
+	fileGZ := srvTmpFolder + nameFile + ".amr.gz"
+	file, err := os.Create(fileGZ)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = file.Write(content)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func uncompressGZ(name string) error {
+	pathGZ := srvTmpFolder + name + ".amr.gz"
+	gzipFile, err := os.Open(pathGZ)
+	if err != nil {
+		return err
+	}
+	gzipReader, err := gzip.NewReader(gzipFile)
+	if err != nil {
+		return err
+	}
+	unzipNameFile := strings.Split(pathGZ, ".gz")
+	outfileWriter, err := os.Create(unzipNameFile[0])
+	if err != nil {
+		return err
+	}
+	io.Copy(outfileWriter, gzipReader)
+	outfileWriter.Close()
+	gzipReader.Close()
+	gzipFile.Close()
+
+	return nil
+}
+
+func ignoreWrongNode(resp io.ReadCloser) (io.Reader, error) {
+	scan := bufio.NewScanner(resp)
+	var i int
+	var newResp string = `<?xml version="1.0" encoding="UTF-8" ?>`
+	for scan.Scan() {
+		i++
+		if i == 1 || i == 3 || i == 12 {
+			continue
+		}
+		str := strings.ReplaceAll(scan.Text(), "&", "&amp;")
+		newResp = newResp + fmt.Sprintf("%s", strings.TrimSpace(str))
+	}
+
+	if err := scan.Err(); err != nil {
+		return nil, err
+	}
+
+	return strings.NewReader(newResp), nil
+}
+
+func xmlDecoder(res *http.Response) *xml.Decoder {
+	decoder := xml.NewDecoder(res.Body)
+	decoder.Strict = false
+	decoder.CharsetReader = charset.NewReaderLabel
+	return decoder
+}
+
+func createFile(res *http.Response, nameFile string) (bool, error) {
+	filepath := srvTmpFolder + nameFile
+	file, err := os.Create(filepath)
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, res.Body)
+	if err != nil {
+		return false, err
+	}
+	_, err = ioutil.ReadFile(filepath)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func concatMP3files(fileBeep, fileAnsw string) (string, error) {
+	pathBeep := srvTmpFolder + fileBeep + ".mp3"
+	pathAnsw := srvTmpFolder + fileAnsw + ".mp3"
+	pathOut := srvTmpFolder + "out_" + fileAnsw + ".mp3"
+	com := fmt.Sprintln(fmt.Sprintf(ffmpegConcatMP3, pathBeep, pathAnsw, pathOut))
+	_, err := execCommand(com)
+	if err != nil {
+		return "", err
+	}
+	return "out_" + fileAnsw, nil
+}
+
+func calcCoordinate(fileBeep, fileAnsw string) (float64, int, error) {
+	var files [2]string
+	files[0] = srvTmpFolder + fileBeep + ".mp3"
+	files[1] = srvTmpFolder + fileAnsw + ".mp3"
+	var duration [2]int
+	for i := 0; i < len(files); i++ {
+		com := fmt.Sprintln(fmt.Sprintf(ffmpegDuration, files[i]))
+		out, err := execCommand(com)
+		if err != nil {
+			return 0, 0, err
+		}
+		strOut := strings.Split(string(out), ",")
+		strTime := strings.Split(strOut[0], "Duration:")
+		t := iTestParseTime(strings.TrimSpace(strTime[1]))
+		duration[i] = 60*t.Minute() + t.Second()
+	}
+	return float64(duration[0]), 500 * duration[0] / (duration[0] + duration[1]), nil
 }
