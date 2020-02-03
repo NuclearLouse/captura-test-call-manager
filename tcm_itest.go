@@ -39,7 +39,7 @@ func (api itestAPI) requestPOST(req string) (*http.Response, error) {
 }
 
 func (api itestAPI) runNewTest(db *gorm.DB, fnt foundTest) error {
-	// тут нужен вызов промежуточной функции с преобразованиями значений Captura на
+	// тут нужен вызов промежуточной функции с преобразованиями значений Captura
 	// var request string
 	// если тест по Б-номеру
 	//   https://api.i-­test.net/?t=2011&profid=12&prefix=34&numbers=1234%%-­5678%%-­12345678
@@ -114,15 +114,6 @@ func (api itestAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		return err
 	}
 
-	//This block replace function ignoreWrongNode()
-	// re1 := regexp.MustCompile(`<Calls_Total>[0-9]+`)
-	// fs1 := re1.FindAllString(string(body), -1)
-	// ss1 := strings.Split(fs1[0], "<Calls_Total>")
-	// re2 := regexp.MustCompile(`<Calls_Complete>[0-9]+`)
-	// fs2 := re2.FindAllString(string(body), -1)
-	// ss2 := strings.Split(fs2[0], "<Calls_Complete>")
-	// if ss1[1] == ss2[1] {
-
 	if s.CallsTotal == s.CallsComplete {
 		req := fmt.Sprintf("%s?t=%d&jid=%s", api.URL, api.TestStatusDetails, testid)
 		res, err := api.requestPOST(req)
@@ -149,223 +140,114 @@ func (api itestAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			return err
 		}
 		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
-		go api.uploadAudioFiles(db, tr)
+		go api.downloadAudioFiles(db, tr)
 		return nil
 	}
 	log.Info("Wait. The test is not over yet for test_ID", testid)
 	return nil
 }
 
-func (api itestAPI) checkPresentAudioFile(call, callID string) (string, bool, error) {
-	var req, nameFile string
-	pref := fmt.Sprintf("%v_", time.Now().Unix())
-	switch call {
-	case "beep":
-		nameFile = pref + callID + "-r.mp3"
-		req = fmt.Sprintf("%s%s/call-%s-r.mp3", api.RepoURL, callID[:8], callID)
-	case "answer":
-		nameFile = pref + callID + ".mp3"
-		req = fmt.Sprintf("%s%s/call-%s.mp3", api.RepoURL, callID[:8], callID)
-	}
+func (api itestAPI) checkPresentAudioFile(req string) (bool, error) {
 	res, err := api.requestPOST(req)
 	if err != nil {
-		return "error", false, err
+		return false, err
 	}
+	defer res.Body.Close()
 	if res.Header[`Content-Type`][0] != "audio/mpeg" {
-		// errstring := fmt.Sprintf("Test system didn't provide audio file, response return Content-Type=%s", response.Header[`Content-Type`][0])
-		return "html", false, errors.New("Not present audio file")
+		return false, errors.New("not present audio file")
 	}
-	file, err := createFile(res, nameFile)
-	if err != nil {
-		return "error", false, err
+	//call-20200203123456789-r.mp3 or call-20200203123456789.mp3
+	nameFile := strings.Split(req, "/")[3]
+	if err := createFile(res.Body, nameFile); err != nil {
+		return false, err
 	}
-	name := strings.Split(nameFile, ".")[0]
-	return name, file, nil
+	return true, nil
 }
 
-func (api itestAPI) uploadAudioFiles(db *gorm.DB, tr testResultItest) {
+func (api itestAPI) downloadAudioFiles(db *gorm.DB, tr testResultItest) {
 	for _, call := range tr.Call {
-		// var rows []CallingSysTestResults
-		// if err := db.Where(`"DataLoaded"=false AND "TestSystem"=?`, api.SystemID).Find(&rows).Error; err != nil {
-		// 	log.Errorf(502, "Cann't obtain rows for DataLoaded=false|%v", err)
-		// 	continue
-		// }
-		// if len(rows) == 0 {
-		// 	// This log will be every second in the absence of new tests
-		// 	log.Trace("Not rows for files_uploaded=false. All files upload.")
-		// 	time.Sleep(time.Duration(1) * time.Second) // just in case
-		// 	continue
-		// }
-		// for i := range rows {
-		var fileBeep, fileAnsw bool
-		var nameFile, nameFileBeep, nameFileAnsw string
-		var err error
-		var cWav []byte
-		var cImg []byte
-		// callID := rows[i].CallID
-		if rows[i].RingDuration == -1 && rows[i].CallDuration == -1 {
-			log.Debug("Not present beep and answer audio file for call_id", call.ID)
+		req := fmt.Sprintf("%s%s/call-%s-r.mp3", api.RepoURL, call.ID[:8], call.ID)
+		fileRing, err := api.checkPresentAudioFile(req)
+		if err != nil {
+			log.Error(999, err.Error())
+		}
+		req = fmt.Sprintf("%s%s/call-%s.mp3", api.RepoURL, call.ID[:8], call.ID)
+		fileAnsw, err := api.checkPresentAudioFile(req)
+		if err != nil {
+			log.Error(999, err.Error())
+		}
+		var nameFile string
+		var cWav, cImg []byte
+		var connectTime float64
+		var x int
+		switch {
+		case fileRing && fileAnsw:
+			connectTime, x, err = calcCoordinate(call.ID)
+			if err != nil {
+				log.Errorf(509, "Cann't get the coordinate of the beginning of the answer for call_ID %s|%v", call.ID, err)
+			}
+			if err := concatMP3files(call.ID); err != nil {
+				log.Errorf(510, "Cann't concatenate ring and answer MP3 files for call_id %s|%v", call.ID, err)
+				continue
+			}
+			log.Info("Concatenate ring and answer mp3 files for call_id", call.ID)
+			listDeleteFiles := []string{
+				srvTmpFolder + "call-" + call.ID + "-r.mp3",
+				srvTmpFolder + "call-" + call.ID + ".mp3",
+			}
+			if err = deleteFiles(listDeleteFiles); err != nil {
+				log.Errorf(508, "Cann't delete ring or answer mp3 files for call_id %s|%v", call.ID, err)
+			}
+			nameFile = "out-" + call.ID
+		case fileRing && !fileAnsw:
+			nameFile = "call-" + call.ID + "-r"
+		case !fileRing && fileAnsw:
+			nameFile = "call-" + call.ID
+		case !fileRing && !fileAnsw:
+			log.Debug("There are not beep and answer audio files for call_id", call.ID)
 			if err = insertEmptyFiles(db, call.ID); err != nil {
 				log.Errorf(503, "Cann't update data row about empty request for call_id %s|%v", call.ID, err)
 			}
 			continue
 		}
-		if rows[i].CallDuration == -1 {
-			nameFileBeep, fileBeep, err = api.checkPresentAudioFile("beep", call.ID)
-			switch nameFileBeep {
-			case "html":
-				log.Info("Not present audio file for call_id", call.ID)
-				if err = insertEmptyFiles(db, call.ID); err != nil {
-					log.Errorf(503, "Cann't update data row about empty request for call_id %s||%v", call.ID, err)
-				}
-				continue
-			case "error":
-				log.Errorf(504, "For call_id %s|%v", call.ID, err)
-				continue
-			}
-			if fileBeep {
-				log.Info("Download mp3 beep file for call_id", call.ID)
-			}
-			cWav, err = decodeToWAV(nameFileBeep, "mp3")
-			if err != nil {
-				log.Errorf(505, "Cann't decode MP3 file to WAV for call_id %s|%v", call.ID, err)
-				continue
-			}
-			log.Info("Decode mp3 file to WAV for call_id", call.ID)
-			cImg, err = waveFormImage(nameFileBeep, 0)
-			if err != nil || len(cImg) == 0 {
-				log.Errorf(506, "Cann't create waveform PNG image file for call_id %s|%v", call.ID, err)
-				cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
-				continue
-			}
-			log.Info("Created image PNG file for call_id", call.ID)
-
-			listDeleteFiles := []string{
-				srvTmpFolder + nameFileBeep + ".mp3",
-				srvTmpFolder + nameFileBeep + ".wav",
-				srvTmpFolder + nameFileBeep + ".png",
-				srvTmpFolder + nameFileBeep + ".bmp",
-			}
-
-			callsinfo := CallingSysTestResults{
-				DataLoaded:  true,
-				AudioFile:   cWav,
-				AudioGraph:  cImg,
-				ConnectTime: 0,
-			}
-			// if err = updateCallsInfo(db, callID, callsinfo); err != nil {
-			if err = callsinfo.updateCallsInfo(db, call.ID); err != nil {
-				log.Errorf(507, "Cann't insert WAV file into table for system %s call_id %s|%v", api.SystemName, call.ID, err)
-				continue
-			}
-			log.Info("Insert WAV and IMG file for callid", call.ID)
-
-			if err = deleteFiles(listDeleteFiles); err != nil {
-				log.Errorf(508, "Cann't delete beep or answer mp3 files for call_ID %s|%v", call.ID, err)
-			}
+		cWav, err = decodeToWAV(nameFile, "mp3")
+		if err != nil {
+			log.Errorf(505, "Cann't decode MP3 file to WAV for call_id %s|%v", call.ID, err)
 			continue
 		}
-		fileBeep = false
-		fileAnsw = false
-		if rows[i].CallDuration != -1 {
-			nameFileBeep, fileBeep, err = api.checkPresentAudioFile("beep", call.ID)
-			switch nameFileBeep {
-			case "html":
-				log.Warnf("%v for call_id %s", err, call.ID)
-			case "error":
-				log.Errorf(504, "For call_id %s|%v", call.ID, err)
-				continue
-			}
-			if fileBeep {
-				log.Info("Download mp3 beep file for call_id", call.ID)
-			}
-			nameFileAnsw, fileAnsw, err = api.checkPresentAudioFile("answer", call.ID)
-			switch nameFileAnsw {
-			case "html":
-				log.Warnf("%v for call_id %s", err, call.ID)
-			case "error":
-				log.Errorf(504, "For call_id %s|%v", call.ID, err)
-				continue
-			}
-			if fileAnsw {
-				log.Info("Download mp3 answ file for call_id", call.ID)
-			}
-			var connectTime float64
-			var x int
-			switch {
-			case fileBeep && fileAnsw:
-				connectTime, x, err = calcCoordinate(nameFileBeep, nameFileAnsw)
-				if err != nil {
-					log.Errorf(509, "Cann't get the coordinate of the beginning of the answer for call_ID %s|%v", call.ID, err)
-				}
-				nameFile, err = concatMP3files(nameFileBeep, nameFileAnsw)
-				if err != nil {
-					log.Errorf(510, "Cann't concatenate beep and answer MP3 files for call_id %s|%v", call.ID, err)
-					continue
-				}
-				log.Info("Concatenate beep and answer mp3 files for call_id", call.ID)
-				listDeleteFiles := []string{
-					srvTmpFolder + nameFileBeep + ".mp3",
-					srvTmpFolder + nameFileAnsw + ".mp3",
-				}
-				if err = deleteFiles(listDeleteFiles); err != nil {
-					log.Errorf(508, "Cann't delete beep or answer mp3 files for call_id %s|%v", call.ID, err)
-				}
-			case fileBeep && !fileAnsw:
-				nameFile = nameFileBeep
-			case !fileBeep && fileAnsw:
-				nameFile = nameFileAnsw
-			case !fileBeep && !fileAnsw:
-				log.Debug("There are not beep and answer audio files for call_id", call.ID)
-				if err = insertEmptyFiles(db, call.ID); err != nil {
-					log.Errorf(503, "Cann't update data row about empty request for call_id %s|%v", call.ID, err)
-				}
-				continue
-			}
-			cWav, err = decodeToWAV(nameFile, "mp3")
-			if err != nil {
-				log.Errorf(505, "Cann't decode MP3 file to WAV for call_id %s|%v", call.ID, err)
-				continue
-			}
-			log.Info("Decod mp3 files to WAV for call_id", call.ID)
-			cImg, err = waveFormImage(nameFile, x)
-			if err != nil || len(cImg) == 0 {
-				log.Errorf(506, "Cann't create waveform PNG image file for call_id %s|%v", call.ID, err)
-				cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
-				continue
-			}
-			log.Info("Created image PNG file for call_id", call.ID)
+		log.Info("Decod mp3 files to WAV for call_id", call.ID)
+		cImg, err = waveFormImage(nameFile, x)
+		if err != nil || len(cImg) == 0 {
+			log.Errorf(506, "Cann't create waveform PNG image file for call_id %s|%v", call.ID, err)
+			cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
+			continue
+		}
+		log.Info("Created image PNG file for call_id", call.ID)
 
-			listDeleteFiles := []string{
-				srvTmpFolder + nameFile + ".mp3",
-				srvTmpFolder + nameFile + ".wav",
-				srvTmpFolder + nameFile + ".png",
-				srvTmpFolder + nameFile + ".bmp",
-			}
+		listDeleteFiles := []string{
+			srvTmpFolder + nameFile + ".mp3",
+			srvTmpFolder + nameFile + ".wav",
+			srvTmpFolder + nameFile + ".png",
+			srvTmpFolder + nameFile + ".bmp",
+		}
 
-			callsinfo := CallingSysTestResults{
-				DataLoaded:  true,
-				AudioFile:   cWav,
-				AudioGraph:  cImg,
-				ConnectTime: connectTime,
-			}
-			// if err = updateCallsInfo(db, callID, callsinfo); err != nil {
-			if err = callsinfo.updateCallsInfo(db, call.ID); err != nil {
-				log.Errorf(507, "Cann't insert WAV file into table for call_id %s|%v", call.ID, err)
-				continue
-			}
-			log.Info("Insert WAV and IMG file for callid", call.ID)
+		callsinfo := CallingSysTestResults{
+			DataLoaded:  true,
+			AudioFile:   cWav,
+			AudioGraph:  cImg,
+			ConnectTime: connectTime,
+		}
+		if err = callsinfo.updateCallsInfo(db, call.ID); err != nil {
+			log.Errorf(507, "Cann't insert WAV file into table for call_id %s|%v", call.ID, err)
+			continue
+		}
+		log.Info("Insert WAV and IMG file for callid", call.ID)
 
-			if err = deleteFiles(listDeleteFiles); err != nil {
-				log.Errorf(512, "Cann't delete beep or answer mp3 files for call_id %s|%v", call.ID, err)
-			}
-
+		if err = deleteFiles(listDeleteFiles); err != nil {
+			log.Errorf(512, "Cann't delete beep or answer mp3 files for call_id %s|%v", call.ID, err)
 		}
 	}
 	log.Infof("All present files download from %s server and upload into the table TestResults", api.SystemName)
-	// time.Sleep(time.Duration(1) * time.Second) // just in case
-	// }
-
 }
 
 func (itestAPI) insertCallsInfo(db *gorm.DB, tr testResultItest, ti foundTest) error {
@@ -420,4 +302,78 @@ func (itestAPI) insertCallsInfo(db *gorm.DB, tr testResultItest, ti foundTest) e
 		}
 	}
 	return nil
+}
+
+func (itestAPI) TableName() string {
+	return schemaPG + "CallingSys_API_iTest"
+}
+
+type itestAPI struct {
+	SystemName        string `gorm:"size:50;foreignkey:CallingSys_Settings.SystemName"`
+	URL               string `gorm:"size:100"`
+	RepoURL           string `gorm:"size:100"`
+	User              string `gorm:"size:100"`
+	Pass              string `gorm:"size:100"`
+	Profiles          int    `gorm:"type:int"`
+	Suppliers         int    `gorm:"type:int"`
+	NdbStd            int    `gorm:"type:int"`
+	NdbCli            int    `gorm:"type:int"`
+	TestInit          int    `gorm:"type:int"`
+	TestInitCli       int    `gorm:"type:int"`
+	TestStatus        int    `gorm:"type:int"`
+	TestStatusDetails int    `gorm:"type:int"`
+	SystemID          int    `gorm:"type:int"`
+}
+
+type testInitItest struct {
+	XMLName xml.Name `xml:"Test_Initiation"`
+	Test    struct {
+		TestID   string `xml:"Test_ID"`
+		ShareURL string `xml:"Share_URL"`
+	} `xml:"Test"`
+}
+
+type testStatusItest struct {
+	XMLName       xml.Name `xml:"Test_Status"`
+	Name          string   `xml:"Name"`
+	CallsTotal    int      `xml:"Calls_Total"`
+	CallsComplete int      `xml:"Calls_Complete"`
+	CallsSuccess  int      `xml:"Calls_Success"`
+	CallsNoAnswer int      `xml:"Calls_No_Answer"`
+	CallsFail     int      `xml:"Calls_Fail"`
+	PDD           float64  `xml:"PDD"`
+	ShareURL      string   `xml:"Share_URL"`
+}
+
+type testResultItest struct {
+	XMLName      xml.Name `xml:"Test_Status"`
+	TestOverview struct {
+		Name     string `xml:"Name"`
+		Supplier string `xml:"Supplier"`
+		InitBy   string `xml:"InitBy"`
+		Init     int64  `xml:"Init"`
+		Type     string `xml:"Type"`
+		TestID   string `xml:"Test_ID"`
+	} `xml:"Test_Overview"`
+	Call []struct {
+		ID          string  `xml:"ID"`
+		Source      string  `xml:"Source"`
+		Destination string  `xml:"Destination"`
+		Start       int64   `xml:"Start"`
+		End         float64 `xml:"End"`
+		PDD         float64 `xml:"PDD"`
+		MOS         float64 `xml:"MOS"`
+		Ring        string  `xml:"Ring"` //TODO: need float64
+		Call        string  `xml:"Call"` //TODO: need float64
+		LastCode    string  `xml:"Last_Code"`
+		Result      string  `xml:"Result"`
+		ResultCode  int     `xml:"Result_Code"`
+		CLI         string  `xml:"CLI"`
+		FAS         string  `xml:"FAS"`
+		LDFAS       string  `xml:"LD_FAS"`
+		DeadAir     string  `xml:"Dead_Air"`
+		NoRBT       string  `xml:"No_RBT"`
+		Viber       string  `xml:"Viber"`
+		FDLR        string  `xml:"F-DLR"`
+	} `xml:"Call"`
 }

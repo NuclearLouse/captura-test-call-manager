@@ -392,41 +392,42 @@ func xmlDecoder(res *http.Response) *xml.Decoder {
 	return decoder
 }
 
-func createFile(res *http.Response, nameFile string) (bool, error) {
+func createFile(rc io.ReadCloser, nameFile string) error {
 	filepath := srvTmpFolder + nameFile
 	file, err := os.Create(filepath)
 	if err != nil {
-		return false, err
+		return err
 	}
 	defer file.Close()
 
-	_, err = io.Copy(file, res.Body)
+	_, err = io.Copy(file, rc)
 	if err != nil {
-		return false, err
+		return err
 	}
-	_, err = ioutil.ReadFile(filepath)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+	// _, err = ioutil.ReadFile(filepath)
+	// if err != nil {
+	// 	return err
+	// }
+	return nil
 }
 
-func concatMP3files(fileBeep, fileAnsw string) (string, error) {
-	pathBeep := srvTmpFolder + fileBeep + ".mp3"
-	pathAnsw := srvTmpFolder + fileAnsw + ".mp3"
-	pathOut := srvTmpFolder + "out_" + fileAnsw + ".mp3"
+func concatMP3files(callID string) error {
+	//call-20200203123456789-r.mp3 or call-20200203123456789.mp3
+	pathBeep := srvTmpFolder + "call-" + callID + "-r.mp3"
+	pathAnsw := srvTmpFolder + "call-" + callID + ".mp3"
+	pathOut := srvTmpFolder + "out-" + callID + ".mp3"
 	com := fmt.Sprintln(fmt.Sprintf(ffmpegConcatMP3, pathBeep, pathAnsw, pathOut))
 	_, err := execCommand(com)
 	if err != nil {
-		return "", err
+		return err
 	}
-	return "out_" + fileAnsw, nil
+	return nil
 }
 
-func calcCoordinate(fileBeep, fileAnsw string) (float64, int, error) {
+func calcCoordinate(callID string) (float64, int, error) {
 	var files [2]string
-	files[0] = srvTmpFolder + fileBeep + ".mp3"
-	files[1] = srvTmpFolder + fileAnsw + ".mp3"
+	files[0] = srvTmpFolder + "call-" + callID + "-r.mp3"
+	files[1] = srvTmpFolder + "call-" + callID + ".mp3"
 	var duration [2]int
 	for i := 0; i < len(files); i++ {
 		com := fmt.Sprintln(fmt.Sprintf(ffmpegDuration, files[i]))
