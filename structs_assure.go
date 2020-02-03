@@ -52,9 +52,9 @@ type batchBnumbers struct {
 }
 
 //-----------------------------------------------------------------------------
-// *******************Structs for obtain tests results*******************
+// ****************Structs for obtain tests status and results****************
 //-----------------------------------------------------------------------------
-type TestBatches struct {
+type testStatusAssure struct {
 	TestBatchID    int    `json:"TestBatchID"`
 	StatusID       int    `json:"StatusID"`
 	Status         string `json:"Status"`
@@ -67,7 +67,7 @@ type TestBatches struct {
 	} `json:"TestBatchItems"`
 }
 
-type TestBatchResults struct {
+type testResultAssure struct {
 	QueryResult1 []batchResult
 }
 

@@ -88,7 +88,7 @@ func netsenseDestination(destID int) string {
 	return "+" + strconv.Itoa(destID)
 }
 
-func (api netSenseAPI) buildNewTest(nit foundTest) testInit {
+func (api netSenseAPI) buildNewTest(nit foundTest) testInitNetsense {
 	var (
 		bnums []string
 		dests []listDestination
@@ -104,7 +104,7 @@ func (api netSenseAPI) buildNewTest(nit foundTest) testInit {
 		destination := listDestination{Destination: dest}
 		dests = append(dests, destination)
 	}
-	return testInit{
+	return testInitNetsense{
 		Authentication: authentication{Key: api.AuthKey},
 		ParametersList: parametersList{
 			CallTypeList: callTypeList{
@@ -194,7 +194,7 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		return err
 	}
 	// fmt.Println(string(body))
-	var ts testStatus
+	var ts testStatusNetsense
 	if err := xml.Unmarshal(body, &ts); err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		// 	return err
 		// }
 
-		var callsinfo testResult
+		var callsinfo testResultNetsense
 		if err := xml.Unmarshal(body, &callsinfo); err != nil {
 			return err
 		}
@@ -248,7 +248,7 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			return err
 		}
 		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
-		go api.checkPresentAudioFile(db, callsinfo)
+		go api.uploadAudioFiles(db, callsinfo)
 		return nil
 	default:
 		// ?Most likely this situation will never arise
@@ -264,7 +264,7 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	return nil
 }
 
-func (api netSenseAPI) insertCallsInfo(db *gorm.DB, tr testResult, lt foundTest) (string, error) {
+func (api netSenseAPI) insertCallsInfo(db *gorm.DB, tr testResultNetsense, lt foundTest) (string, error) {
 	var testedFrom string
 	for i := range tr.Result.List {
 		if i == 0 {
@@ -303,7 +303,7 @@ func (api netSenseAPI) insertCallsInfo(db *gorm.DB, tr testResult, lt foundTest)
 	return testedFrom, nil
 }
 
-func (api netSenseAPI) checkPresentAudioFile(db *gorm.DB, tr testResult) {
+func (api netSenseAPI) uploadAudioFiles(db *gorm.DB, tr testResultNetsense) {
 	for _, l := range tr.Result.List {
 		audioURL := l.CallResult.AudioURL.Value
 		callID := l.CallResult.CallResultID.Value

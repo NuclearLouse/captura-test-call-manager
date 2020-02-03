@@ -30,51 +30,55 @@ type itestAPI struct {
 	SystemID          int    `gorm:"type:int"`
 }
 
-type TestInitiation struct {
+type testInitItest struct {
 	XMLName xml.Name `xml:"Test_Initiation"`
-	Test    test     `xml:"Test"`
+	Test    struct {
+		TestID   string `xml:"Test_ID"`
+		ShareURL string `xml:"Share_URL"`
+	} `xml:"Test"`
 }
 
-type test struct {
-	TestID   string `xml:"Test_ID"`
-	ShareURL string `xml:"Share_URL"`
+type testStatusItest struct {
+	XMLName       xml.Name `xml:"Test_Status"`
+	Name          string   `xml:"Name"`
+	CallsTotal    int      `xml:"Calls_Total"`
+	CallsComplete int      `xml:"Calls_Complete"`
+	CallsSuccess  int      `xml:"Calls_Success"`
+	CallsNoAnswer int      `xml:"Calls_No_Answer"`
+	CallsFail     int      `xml:"Calls_Fail"`
+	PDD           float64  `xml:"PDD"`
+	ShareURL      string   `xml:"Share_URL"`
 }
 
-type CallsInfo struct {
-	XMLName      xml.Name     `xml:"Test_Status"`
-	TestOverview testOverview `xml:"Test_Overview"`
-	Calls        []call       `xml:"Call"`
-}
-
-type testOverview struct {
-	XMLName  xml.Name `xml:"Test_Overview"`
-	Name     string   `xml:"Name"`
-	Supplier string   `xml:"Supplier"`
-	InitBy   string   `xml:"InitBy"`
-	Init     int64    `xml:"Init"`
-	Type     string   `xml:"Type"`
-	TestID   string   `xml:"Test_ID"`
-}
-
-type call struct {
-	XMLName     xml.Name `xml:"Call"`
-	CallID      string   `xml:"ID"`
-	Source      string   `xml:"Source"`
-	Destination string   `xml:"Destination"`
-	Start       int64    `xml:"Start"`
-	End         float64  `xml:"End"`
-	PDD         float64  `xml:"PDD"`
-	MOS         float64  `xml:"MOS"`
-	Ring        string   `xml:"Ring"`
-	Call        string   `xml:"Call"`
-	LastCode    string   `xml:"Last_Code"`
-	Result      string   `xml:"Result"`
-	ResultCode  int      `xml:"Result_Code"`
-	CLI         string   `xml:"CLI"`
-	FAS         string   `xml:"FAS"`
-	LdFAS       string   `xml:"LD_FAS"`
-	DeadAir     string   `xml:"Dead_Air"`
-	NoRBT       string   `xml:"No_RBT"`
-	Viber       string   `xml:"Viber"`
-	FDLR        string   `xml:"F-DLR"`
+type testResultItest struct {
+	XMLName      xml.Name `xml:"Test_Status"`
+	TestOverview struct {
+		Name     string `xml:"Name"`
+		Supplier string `xml:"Supplier"`
+		InitBy   string `xml:"InitBy"`
+		Init     int64  `xml:"Init"`
+		Type     string `xml:"Type"`
+		TestID   string `xml:"Test_ID"`
+	} `xml:"Test_Overview"`
+	Call []struct {
+		ID          string  `xml:"ID"`
+		Source      string  `xml:"Source"`
+		Destination string  `xml:"Destination"`
+		Start       int64   `xml:"Start"`
+		End         float64 `xml:"End"`
+		PDD         float64 `xml:"PDD"`
+		MOS         float64 `xml:"MOS"`
+		Ring        string  `xml:"Ring"`
+		Call        string  `xml:"Call"`
+		LastCode    string  `xml:"Last_Code"`
+		Result      string  `xml:"Result"`
+		ResultCode  int     `xml:"Result_Code"`
+		CLI         string  `xml:"CLI"`
+		FAS         string  `xml:"FAS"`
+		LDFAS       string  `xml:"LD_FAS"`
+		DeadAir     string  `xml:"Dead_Air"`
+		NoRBT       string  `xml:"No_RBT"`
+		Viber       string  `xml:"Viber"`
+		FDLR        string  `xml:"F-DLR"`
+	} `xml:"Call"`
 }

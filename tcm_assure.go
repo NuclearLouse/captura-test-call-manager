@@ -136,7 +136,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 		return err
 	}
 
-	var newTests TestBatches
+	var newTests testStatusAssure
 	if err := json.Unmarshal(body, &newTests); err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		return err
 	}
 	res.Body.Close()
-	var result TestBatches
+	var result testStatusAssure
 	if err := json.Unmarshal(body, &result); err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			return err
 		}
 		defer res.Body.Close()
-		var callsinfo TestBatchResults
+		var callsinfo testResultAssure
 		if err := json.Unmarshal(body, &callsinfo); err != nil {
 			return err
 		}
@@ -226,7 +226,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			return err
 		}
 		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
-		go api.checkPresentAudioFile(db, callsinfo)
+		go api.uploadAudioFiles(db, callsinfo)
 		return nil
 	case 5, 6, 7:
 		// 5 - Cancelling
@@ -245,7 +245,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	return nil
 }
 
-func (api assureAPI) checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
+func (api assureAPI) uploadAudioFiles(db *gorm.DB, tr testResultAssure) {
 	for _, res := range tr.QueryResult1 {
 		callID := fmt.Sprintf("%d", res.CallResultID)
 
@@ -317,7 +317,7 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
 	}
 }
 
-func (assureAPI) insertCallsInfo(db *gorm.DB, tr TestBatchResults, lt foundTest) error {
+func (assureAPI) insertCallsInfo(db *gorm.DB, tr testResultAssure, lt foundTest) error {
 	for _, res := range tr.QueryResult1 {
 		callstart := assureParseTime(res.TestStartTime)
 		callinfo := CallingSysTestResults{

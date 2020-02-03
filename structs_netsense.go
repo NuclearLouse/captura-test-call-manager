@@ -32,7 +32,7 @@ type netSenseAPI struct {
 //-----------------------------------------------------------------------------
 //*******************Block of test initialization structures*******************
 //-----------------------------------------------------------------------------
-type testInit struct {
+type testInitNetsense struct {
 	XMLName        xml.Name `xml:"callListRequest"`
 	Authentication authentication
 	ParametersList parametersList
@@ -114,7 +114,7 @@ type testInitResponse struct {
 //-----------------------------------------------------------------------------
 //**************Block of test status and test results structures***************
 //-----------------------------------------------------------------------------
-type testStatus struct {
+type testStatusNetsense struct {
 	XMLName               xml.Name `xml:"callListResponseIdArray"`
 	CallListResponseArray struct {
 		CallListID       string `xml:"callListId"`
@@ -130,7 +130,7 @@ type getStatus struct {
 	CallList string   `xml:"callListIdList"`
 }
 
-type testResult struct {
+type testResultNetsense struct {
 	XMLName xml.Name `xml:"response"`
 	Result  struct {
 		List []struct {
