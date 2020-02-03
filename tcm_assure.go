@@ -22,8 +22,6 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
-	"github.com/mitchellh/mapstructure"
-	gormbulk "github.com/t-tiger/gorm-bulk-insert"
 	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
@@ -33,18 +31,6 @@ func (api *assureAPI) sysName(db *gorm.DB) string {
 }
 
 func (api assureAPI) checkAuth(db *gorm.DB) bool {
-	res, err := api.requestGET(api.Version)
-	if err != nil {
-		return false
-	}
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return false
-	}
-	if string(body) == "" {
-		return false
-	}
 	return true
 }
 
@@ -57,11 +43,11 @@ func (assureAPI) parseBNumbers(customBNumbers string) (nums []int64) {
 	return
 }
 
-func (assureAPI) newTestBnumbers(ttn string, nit foundTest, nums []int64) testSetBnumbers {
+func (assureAPI) newTestBnumbers(nit foundTest, nums []int64) testSetBnumbers {
 	var batches []batchBnumbers
 	for _, p := range nums {
 		b := batchBnumbers{
-			TestTypeName: ttn,
+			TestTypeName: nit.TestType,
 			RouteID:      nit.TestSysRouteID,
 			PhoneNumber:  p}
 
@@ -72,27 +58,27 @@ func (assureAPI) newTestBnumbers(ttn string, nit foundTest, nums []int64) testSe
 	}
 }
 
-func (assureAPI) newTestDestination(ttn string, nit foundTest) testSetDestination {
+func (assureAPI) newTestDestination(nit foundTest) testSetDestination {
 	return testSetDestination{
 		NoOfExecutions: nit.TestCalls,
 		TestSetItems: []batchDestination{batchDestination{
-			TestTypeName:  ttn,
+			TestTypeName:  nit.TestType,
 			RouteID:       nit.TestSysRouteID,
 			DestinationID: nit.DestinationID},
 		},
 	}
 }
 
-func (api assureAPI) buildNewTests(ttn string, nit foundTest) (interface{}, error) {
+func (api assureAPI) buildNewTests(nit foundTest) (interface{}, error) {
 	if nit.BNumber != "" {
 		bnums := api.parseBNumbers(nit.BNumber)
-		return api.newTestBnumbers(ttn, nit, bnums), nil
+		return api.newTestBnumbers(nit, bnums), nil
 	}
 
 	if nit.TestCalls == 0 {
 		return struct{}{}, errors.New("zero calls initialized")
 	}
-	return api.newTestDestination(ttn, nit), nil
+	return api.newTestDestination(nit), nil
 }
 
 func (api assureAPI) requestGET(r string) (*http.Response, error) {
@@ -130,18 +116,8 @@ func (api assureAPI) httpRequest(req *http.Request) (*http.Response, error) {
 }
 
 func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
-	var ttn string
 
-	switch nit.TestType.name() {
-	case "cli":
-		ttn = "CLI"
-	case "voice":
-		ttn = "Voice Quality Basic"
-	case "fas":
-		ttn = "FAS"
-	}
-
-	newTest, err := api.buildNewTests(ttn, nit)
+	newTest, err := api.buildNewTests(nit)
 	if err != nil {
 		return err
 	}
@@ -206,7 +182,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	if err := json.Unmarshal(body, &result); err != nil {
 		return err
 	}
-	var statistics PurchOppt
+	var statistic PurchOppt
 	switch result.StatusID {
 	case 0, 1, 2, 3:
 		// 0 - Unknown
@@ -218,7 +194,8 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	case 4:
 		// 4 - Finishing
 		log.Debug("The end test for test_ID", testid)
-		req := fmt.Sprintf("%sTest+Details+:+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, testid)
+		//Test Details : CLI - FAS - VQ - with audio
+		req := fmt.Sprintf("%sTest+Details+:+CLI+-+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, testid)
 		res, err := api.requestGET(req)
 		log.Debugf("Sending request TestResults for system %s test_ID %s", api.SystemName, testid)
 		if err != nil {
@@ -241,12 +218,11 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		}
 		log.Infof("Successfully insert data from table TestResults for system Assure test_ID %s", testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
-		statistics = callsStatistics(db, testid)
-		statistics.TestedFrom = assureParseTime(result.Created)
-		statistics.TestedByUser = lt.RequestByUser
-		statistics.TestResult = "OK"
-
-		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
+		statistic = callsStatistic(db, testid)
+		statistic.TestedFrom = assureParseTime(result.Created)
+		statistic.TestedByUser = lt.RequestByUser
+		statistic.TestResult = "OK"
+		if err := statistic.updateStatistic(db, testid); err != nil {
 			return err
 		}
 		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
@@ -257,10 +233,10 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		// 6 - Cancelled
 		// 7 - Exception
 		log.Info("Cancelled test for test_ID", testid)
-		statistics.RequestState = 2
-		statistics.TestedUntil = time.Now()
-		statistics.TestComment = "Cancelled test by Assure for test_ID" + testid
-		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
+		statistic.RequestState = 2
+		statistic.TestedUntil = time.Now()
+		statistic.TestComment = "Cancelled test by Assure for test_ID:" + testid
+		if err := statistic.updateStatistic(db, testid); err != nil {
 			return err
 		}
 		log.Debug("Successfully update data to the table Purch_Oppt from test_ID", testid)
@@ -329,7 +305,7 @@ func (api assureAPI) checkPresentAudioFile(db *gorm.DB, tr TestBatchResults) {
 			AudioFile:  cWav,
 			AudioGraph: cImg,
 		}
-		if err = updateCallsInfo(db, callID, callsinfo); err != nil {
+		if err = callsinfo.updateCallsInfo(db, callID); err != nil {
 			log.Errorf(610, "Cann't insert WAV file into table for system Assure call_id %s|%v", callID, err)
 			continue
 		}
@@ -406,158 +382,5 @@ func uncompressGZ(name string) error {
 	gzipReader.Close()
 	gzipFile.Close()
 
-	return nil
-}
-
-func (api assureAPI) prepareRequests(db *gorm.DB, interval int64) {
-	for {
-		log.Info("Send preparatory requests for", api.SystemName)
-		log.Debug("API Settings", api)
-		httpRequests := map[string]string{
-			"assure_routes":             api.Routes,
-			"assure_destinations":       api.Destinations,
-			"assure_nodes":              api.Nodes,
-			"assure_nodes_capabilities": api.NodesCapabilities,
-		}
-		keys := make([]string, 0)
-		for key := range httpRequests {
-			keys = append(keys, key)
-		}
-		for i := range keys {
-			var err error
-			res, err := api.requestGET(api.QueryResults + httpRequests[keys[i]])
-			// log.Debug("Prepare response", res)
-			if err != nil {
-				log.Errorf(600, "Failed to get a response to the request %s|%v", keys[i], err)
-				continue
-			}
-			log.Info("Successful response to the request", keys[i])
-			start := time.Now()
-			log.Debug("Start transaction insert into the table", keys[i])
-			if err := insertsPrepareJSON(db, keys[i], res); err != nil {
-				log.Errorf(601, "Could not insert data from response %s|%v", keys[i], err)
-				continue
-			}
-			log.Info("Successfully insert data from response", keys[i])
-			log.Debugf("Elapsed time transaction insert %s %v", keys[i], time.Since(start))
-		}
-		log.Infof("The next data update to prepare %s after %d hours", api.SystemName, interval)
-		time.Sleep(time.Duration(interval) * time.Hour)
-	}
-}
-
-func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
-	body, _ := ioutil.ReadAll(res.Body)
-	tx := db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	if err := tx.Error; err != nil {
-		return err
-	}
-	var bulkslice []interface{}
-	switch req {
-	case "assure_routes":
-		var route assureRoutes // table's struct
-		var routes Routes      // JSON's struct
-		if err := db.Delete(assureRoutes{}).Error; err != nil {
-			return err
-		}
-		log.Debug("Successeful truncate table", route.TableName())
-		if err := json.Unmarshal(body, &routes); err != nil {
-			return err
-		}
-		for i := range routes.QueryResult1 {
-			if err := mapstructure.Decode(routes.QueryResult1[i], &route); err != nil {
-				return err
-			}
-			if dialectDB == "sqlite3" {
-				if err := tx.Create(&route).Error; err != nil {
-					tx.Rollback()
-					return err
-				}
-			}
-			bulkslice = append(bulkslice, route)
-		}
-	case "assure_destinations":
-		var destination assureDestinations
-		var destinations Destinations
-		if err := db.Delete(assureDestinations{}).Error; err != nil {
-			return err
-		}
-		log.Debug("Successeful truncate table", destination.TableName())
-		if err := json.Unmarshal(body, &destinations); err != nil {
-			return err
-		}
-		for i := range destinations.QueryResult1 {
-			if err := mapstructure.Decode(destinations.QueryResult1[i], &destination); err != nil {
-				return err
-			}
-			if dialectDB == "sqlite3" {
-				if err := tx.Create(&destination).Error; err != nil {
-					tx.Rollback()
-					return err
-				}
-			}
-			bulkslice = append(bulkslice, destination)
-		}
-	case "assure_nodes":
-		var node assureNodes
-		var nodes Nodes
-		if err := db.Delete(assureNodes{}).Error; err != nil {
-			return err
-		}
-		log.Debug("Successeful truncate table", node.TableName())
-		if err := json.Unmarshal(body, &nodes); err != nil {
-			return err
-		}
-		for i := range nodes.QueryResult1 {
-			if err := mapstructure.Decode(nodes.QueryResult1[i], &node); err != nil {
-				return err
-			}
-			if dialectDB == "sqlite3" {
-				if err := tx.Create(&node).Error; err != nil {
-					tx.Rollback()
-					return err
-				}
-			}
-			bulkslice = append(bulkslice, node)
-		}
-	case "assure_nodes_capabilities":
-		var node assureNodesCapabilities
-		var nodes NodeCapabilities
-		if err := db.Delete(assureNodesCapabilities{}).Error; err != nil {
-			return err
-		}
-		log.Debug("Successeful truncate table", node.TableName())
-		if err := json.Unmarshal(body, &nodes); err != nil {
-			return err
-		}
-		for i := range nodes.QueryResult1 {
-			if err := mapstructure.Decode(nodes.QueryResult1[i], &node); err != nil {
-				return err
-			}
-			if dialectDB == "sqlite3" {
-				if err := tx.Create(&node).Error; err != nil {
-					tx.Rollback()
-					return err
-				}
-			}
-			bulkslice = append(bulkslice, node)
-		}
-	}
-	switch dialectDB {
-	case "sqlite3":
-		err := tx.Commit().Error
-		if err != nil {
-			return err
-		}
-	default:
-		if err := gormbulk.BulkInsert(db, bulkslice, 1500); err != nil {
-			return err
-		}
-	}
 	return nil
 }

@@ -15,11 +15,11 @@ type Config struct {
 }
 
 type Application struct {
-	PrepareRequest       bool   `ini:"prepare_request"`
-	Ffmpeg               string `ini:"ffmpeg"`
-	IntervalDeleteTests  int64  `ini:"delete_old_tests"`
-	IntervalCheckTests   int64  `ini:"check_tests"`
-	IntervalPrepareTests int64  `ini:"prepare_tests"`
+	// PrepareRequest       bool   `ini:"prepare_request"`
+	Ffmpeg              string `ini:"ffmpeg"`
+	IntervalDeleteTests int64  `ini:"delete_old_tests"`
+	IntervalCheckTests  int64  `ini:"check_tests"`
+	// IntervalPrepareTests int64  `ini:"prepare_tests"`
 }
 
 type Logger struct {

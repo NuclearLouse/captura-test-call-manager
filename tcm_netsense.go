@@ -63,16 +63,6 @@ func (api netSenseAPI) httpRequest(req *http.Request) (*http.Response, error) {
 	return res, nil
 }
 
-func (api netSenseAPI) prepareRequests(db *gorm.DB, interval int64) {
-	log.Info("Send preparatory requests for", api.SystemName)
-	log.Debug("API Settings", api)
-	for {
-		log.Infof("The next data update to prepare %s after %d hours", api.SystemName, interval)
-		time.Sleep(time.Duration(interval) * time.Hour)
-	}
-
-}
-
 func (netSenseAPI) parseBNumbers(customBNumbers string) (nums []string) {
 	// Important:
 	// Also	a phone	number can be used instead of a destination	code.
@@ -98,7 +88,7 @@ func netsenseDestination(destID int) string {
 	return "+" + strconv.Itoa(destID)
 }
 
-func (api netSenseAPI) buildNewTest(ttn string, nit foundTest) testInit {
+func (api netSenseAPI) buildNewTest(nit foundTest) testInit {
 	var (
 		bnums []string
 		dests []listDestination
@@ -118,7 +108,7 @@ func (api netSenseAPI) buildNewTest(ttn string, nit foundTest) testInit {
 		Authentication: authentication{Key: api.AuthKey},
 		ParametersList: parametersList{
 			CallTypeList: callTypeList{
-				List: listCallType{CallType: ttn},
+				List: listCallType{CallType: nit.TestType},
 			},
 			RouteList: routeList{
 				ListRoute: listRoute{Route: netsenseRout(nit.TestSysRouteID)},
@@ -133,15 +123,7 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 		return errors.New("zero calls initialized")
 	}
 
-	var ttn string
-	switch nit.TestType.name() {
-	case "cli":
-		ttn = "TrueCLI"
-	case "voice":
-		ttn = "Voice"
-	}
-
-	newTest := api.buildNewTest(ttn, nit)
+	newTest := api.buildNewTest(nit)
 
 	xmlBody, err := xml.Marshal(newTest)
 	if err != nil {
@@ -167,17 +149,22 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 
 	switch newTests.CallListResponseArray.Status.Code {
 	case "200":
-		newTestInfo := PurchOppt{
+		testinfo := PurchOppt{
 			TestingSystemRequestID: newTests.CallListResponseArray.ResponseID,
 			RequestState:           2}
-		if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
+		// if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, nit.RequestID).Update(newTestInfo).Error; err != nil {
+		if err := testinfo.updateTestInfo(db, nit.RequestID); err != nil {
 			return err
 		}
 	case "400":
 		message := fmt.Sprintf("Bad Request. Error code:%s. %s\n", newTests.CallListResponseArray.SubStatus.List.Status.Code, newTests.CallListResponseArray.SubStatus.List.Status.Message)
 		err := errors.New(message)
-		testinfo := PurchOppt{TestingSystemRequestID: "0"}
-		testinfo.failedTest(db, nit.RequestID, message)
+		testinfo := PurchOppt{
+			TestingSystemRequestID: "0",
+			TestedUntil:            time.Now(),
+			TestComment:            message}
+		// testinfo.failedTest(db, nit.RequestID, message)
+		testinfo.updateTestInfo(db, nit.RequestID)
 		return err
 	}
 
@@ -211,7 +198,7 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	if err := xml.Unmarshal(body, &ts); err != nil {
 		return err
 	}
-	var statistics PurchOppt
+	var statistic PurchOppt
 	switch ts.CallListResponseArray.CallLogResponses.Status {
 	case "RUNNING":
 		//TODO: Может нужен какой-то таймаут для запущенных тестов, некоторые могут висеть бесконечно.
@@ -253,11 +240,11 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		log.Infof("Successfully insert data from table TestResults for system Netsense test_ID %s", testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
 
-		statistics = callsStatistics(db, testid)
-		statistics.TestedFrom = netsenseParseTime(testedFrom)
-		statistics.TestedByUser = lt.RequestByUser
-		statistics.TestResult = "OK"
-		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
+		statistic = callsStatistic(db, testid)
+		statistic.TestedFrom = netsenseParseTime(testedFrom)
+		statistic.TestedByUser = lt.RequestByUser
+		statistic.TestResult = "OK"
+		if err := statistic.updateStatistic(db, testid); err != nil {
 			return err
 		}
 		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
@@ -266,10 +253,10 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	default:
 		// ?Most likely this situation will never arise
 		log.Info("Failed test for test_ID", testid)
-		statistics.RequestState = 2
-		statistics.TestedUntil = time.Now()
-		statistics.TestComment = ts.CallListResponseArray.CallLogResponses.Status
-		if err = db.Model(&statistics).Where(`"TestingSystemRequestID"=?`, testid).Update(statistics).Error; err != nil {
+		statistic.RequestState = 2
+		statistic.TestedUntil = time.Now()
+		statistic.TestComment = ts.CallListResponseArray.CallLogResponses.Status
+		if err := statistic.updateStatistic(db, testid); err != nil {
 			return err
 		}
 		log.Debug("Successfully update data to the table Purch_Oppt from test_ID", testid)
@@ -356,7 +343,7 @@ func (api netSenseAPI) checkPresentAudioFile(db *gorm.DB, tr testResult) {
 			AudioFile:  cWav,
 			AudioGraph: cImg,
 		}
-		if err = updateCallsInfo(db, callID, callsinfo); err != nil {
+		if err = callsinfo.updateCallsInfo(db, callID); err != nil {
 			log.Errorf(404, "Cann't insert WAV file into table for system Assure call_id %s|%v", callID, err)
 			continue
 		}
@@ -390,112 +377,3 @@ func (api netSenseAPI) saveWavFile(request, nameFile string) ([]byte, error) {
 	}
 	return body, nil
 }
-
-// func (api netSenseAPI) destinationsync(db *gorm.DB) error {
-// 	url := "https://netsense.arptel.com/netsense/" // из API
-// 	req := "destinationsync/"                      // из API
-// 	myurl := url + req
-// 	AuthKey := "8e66ab96dd031d83308212f0567ae86b" // из API
-// 	timeZone := "Europe/Stockholm"                // из settings?
-// 	isLastRequest := "true"                       // из settings?
-// 	header := fmt.Sprintf(`<destinationRequest>
-// 	<authentication>
-// 	  <key>%s</key>
-// 	</authentication>
-// 	<parameters>
-// 	  <destinationList>`, AuthKey)
-// 	var l []destinationList
-// 	var body string
-// 	for i := range l {
-// 		d := fmt.Sprintf(`<list>
-// 			<destination>%s</destination>
-// 			<code>%s</code>
-// 			<alias>%s</alias>
-// 		  </list>`, l[i].destination, l[i].code, l[i].alias)
-// 		body = body + d
-// 	}
-// 	footer := fmt.Sprintf(`</destinationList>
-// 		</parameters>
-// 		<settings>
-// 		  <timeZone>%s</timeZone>
-// 		  <isLastRequest>%s</isLastRequest>
-// 		  <chainCode/>
-// 		</settings>
-// 	  </destinationRequest>`, timeZone, isLastRequest)
-
-// 	xmlbody := header + body + footer
-// 	resp, err := http.Post(myurl, "application/xml", strings.NewReader(xmlbody))
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
-// 	return nil
-
-//! если их серевер при запросе будет требовать в заголовке поле Accept,
-//! то запрос буду составлять по другому
-//   or you can use []byte(`...`) and convert to Buffer later on
-//   body := "<request> <parameters> <email>test@test.com</email> <password>test</password> </parameters> </request>"
-
-//   client := &http.Client{}
-// build a new request, but not doing the POST yet
-//   req, err := http.NewRequest("POST", "http://localhost:8080/", bytes.NewBuffer([]byte(body)))
-//   if err != nil {
-// 	  fmt.Println(err)
-//   }
-// you can then set the Header here
-// I think the content-type should be "application/xml" like json...
-//   req.Header.Add("Content-Type", "application/xml; charset=utf-8")
-// now POST it
-//   resp, err := client.Do(req)
-//   if err != nil {
-// 	  fmt.Println(err)
-//   }
-//   fmt.Println(resp)
-// }
-
-// func (api netSenseAPI) routesync(db *gorm.DB) error {
-// 	url := "https://netsense.arptel.com/netsense/" // из API
-// 	req := "routesync/"
-// 	myurl := url + req
-// 	AuthKey := "8e66ab96dd031d83308212f0567ae86b"
-// 	parentNode := " Parent Folder Path "                 //еще не знаю что это
-// 	dialerGroup := " Dialer Group Path "                 //еще не знаю что это
-// 	filter := "NO/GROUPED-ABC/DETAILED-ABC (Default NO)" //еще не знаю что это
-// 	header := fmt.Sprintf(`<routeRequest>
-// 	<authentication>
-// 	  <key>%s</key>
-// 	</authentication>
-// 	<settings>
-// 	  <parentNode>%s</parentNode>
-// 	  <dialerGroup>%s</dialerGroup>
-// 	  <filter>%s</filter>
-// 	</settings>
-// 	<parameters>
-// 	  <routeList>`, AuthKey, parentNode, dialerGroup, filter)
-// 	var l []routeList
-// 	var body string
-// 	for i := range l {
-// 		d := fmt.Sprintf(`<list>
-//         <externalId>%s</externalId>
-//         <folder>%s</folder>
-//         <carrier>%s</carrier>
-//         <trunkGroup>%s</trunkGroup>
-//         <trunk>%s</trunk>
-//         <description>%s</description>
-//         <dialerGroup>%s</dialerGroup>
-//         <iac>%s</iac>
-//         <nac>%s</nac>
-//       </list>`, l[i].externalID, l[i].folder, l[i].carrier, l[i].trunkGroup, l[i].trunk, l[i].description, l[i].dialerGroup, l[i].iac, l[i].nac)
-// 		body = body + d
-// 	}
-// 	footer := "</routeList></parameters></routeRequest>"
-
-// 	xmlbody := header + body + footer
-
-// 	resp, err := http.Post(myurl, "application/xml", strings.NewReader(xmlbody))
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
-// 	return nil
-// }

@@ -1,12 +1,10 @@
 [application]
-prepare_request  = false
 ffmpeg           = c:\Users\ffmpeg-20190928\bin\ffmpeg.exe
 delete_old_tests = 12 #hours
-prepare_tests    = 4  #hours
 check_tests      = 5  #seconds
 
 [logger]
-log_path   = 
+log_path   = # ONLY slash for path separator!
 log_level  = info
 rotate     = daily
 

@@ -31,17 +31,9 @@ import (
 
 func createTables(db *gorm.DB) error {
 	listTables := []interface{}{
-		&itestBreakouts{BreakType: "std"},
-		&itestBreakouts{BreakType: "cli"},
-		&itestProfiles{},
-		&itestSuppliers{},
 		&itestAPI{},
 		&netSenseAPI{},
 		&assureAPI{},
-		&assureRoutes{},
-		&assureDestinations{},
-		&assureNodes{},
-		&assureNodesCapabilities{},
 	}
 	var errs error
 	for i := range listTables {
@@ -213,8 +205,8 @@ func updateAPI(db *gorm.DB, model interface{}, sys CallingSysSettings) *gorm.DB 
 	return db.Model(model).Updates(map[string]interface{}{"url": sys.Address, "user": sys.AuthName, "pass": sys.AuthKey}).Take(model)
 }
 
-func updateCallsInfo(db *gorm.DB, callID string, callsinfo CallingSysTestResults) error {
-	if err := db.Model(&callsinfo).Where(`"CallID"=?`, callID).Updates(callsinfo).Error; err != nil {
+func (i CallingSysTestResults) updateCallsInfo(db *gorm.DB, callID string) error {
+	if err := db.Model(&i).Where(`"CallID"=?`, callID).Updates(i).Error; err != nil {
 		return err
 	}
 	return nil
@@ -228,7 +220,7 @@ func insertEmptyFiles(db *gorm.DB, callID string) error {
 		AudioGraph:  labelEmptyBMP(label),
 		ConnectTime: 0,
 	}
-	if err := updateCallsInfo(db, callID, callsinfo); err != nil {
+	if err := callsinfo.updateCallsInfo(db, callID); err != nil {
 		return err
 	}
 	return nil
@@ -260,7 +252,7 @@ func labelEmptyBMP(label string) []byte {
 // find the end time of the last call [MAX("CallComplete")]
 // Counting the number of calls with a duration> 0,
 // and summarize the total duration of these calls
-func callsStatistics(db *gorm.DB, testid string) PurchOppt {
+func callsStatistic(db *gorm.DB, testid string) PurchOppt {
 	var total, complete, sumcalls float64
 	var max time.Time
 	var tr CallingSysTestResults
@@ -295,6 +287,10 @@ func (po PurchOppt) failedTest(db *gorm.DB, request int, comment string) {
 
 func (po PurchOppt) updateTestInfo(db *gorm.DB, id int) error {
 	return db.Model(&po).Where(`"RequestID"=?`, id).Update(po).Error
+}
+
+func (po PurchOppt) updateStatistic(db *gorm.DB, id string) error {
+	return db.Model(&po).Where(`"TestingSystemRequestID"=?`, id).Update(po).Error
 }
 
 func iTestParseTime(strTime string) time.Time {

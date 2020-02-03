@@ -1,4 +1,4 @@
-// service.go
+// tester.go
 //
 // The file contains an interface "tester" declaration that all test systems must satisfy.
 // For each active system that satisfies the interface, the functions necessary
@@ -17,11 +17,9 @@ import (
 
 type tester interface {
 	sysName(*gorm.DB) string
-	prepareRequests(*gorm.DB, int64)
 	runNewTest(*gorm.DB, foundTest) error
 	checkTestComplete(*gorm.DB, foundTest) error
 	// checkAuth(*gorm.DB) bool
-	// uploadResultFiles(*gorm.DB)
 }
 
 func runService(cfg *Config, db *gorm.DB) {
@@ -49,9 +47,9 @@ func runService(cfg *Config, db *gorm.DB) {
 		// case false:
 		// 	log.Errorf(1, "Authentication failed! Check your internet or database connection and username or password for Test System %s", sysname)
 		// }
-		if cfg.Application.PrepareRequest {
-			go ts[i].prepareRequests(db, cfg.Application.IntervalPrepareTests)
-		}
+		// if cfg.Application.PrepareRequest {
+		// 	go ts[i].prepareRequests(db, cfg.Application.IntervalPrepareTests)
+		// }
 		go checkTestStatus(db, ts[i], cfg.Application.IntervalCheckTests)
 		// !go ts[i].uploadResultFiles(db) эту функцию надо переделывать для itest
 	}

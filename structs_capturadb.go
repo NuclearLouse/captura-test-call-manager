@@ -1,11 +1,10 @@
-// structs_callsystem.go
+// structs_capturadb.go
 //
 // The file contains the structures that are needed to work with Captura database tables.
 //
 package main
 
 import (
-	"strings"
 	"time"
 )
 
@@ -67,6 +66,17 @@ type CallingSysTestResults struct {
 	VoiceQualitySpeechLevel    int       `gorm:"column:voiceQualitySpeechLevel;type:int"`
 }
 
+func (PurchStatuses) TableName() string {
+	return schemaPG + "Purch_Statuses"
+}
+
+type PurchStatuses struct {
+	StatusID           int    `gorm:"column:StatusID;type:int;foreignkey:PurchOppt.TestType"`
+	StatusName         string `gorm:"column:StatusName;size:30"`
+	TestSystem         int    `gorm:"column:TestSystem;type:int"`
+	TestSystemCallType string `gorm:"column:TestSystemCallType;size:20"`
+}
+
 func (PurchOppt) TableName() string {
 	return schemaPG + "Purch_Oppt"
 }
@@ -100,21 +110,6 @@ type PurchOppt struct {
 	CallingSysRouteID      int       `gorm:"column:CallingSys_RouteID;type:int"`
 }
 
-type testtype string
-
-func (t testtype) name() string {
-	ts := strings.ToLower(string(t))
-	switch {
-	case strings.Contains(ts, "cli"):
-		return "cli"
-	case strings.Contains(ts, "voice"):
-		return "voice"
-	case strings.Contains(ts, "fas"):
-		return "fas"
-	}
-	return "Unknown Test Type"
-}
-
 type foundTest struct {
 	RequestByUser          int
 	RequestID              int
@@ -129,47 +124,6 @@ type foundTest struct {
 	DestinationID          int
 	SystemID               int
 	SystemName             string
-	TestType               testtype
+	TestType               string
 	TestComment            string
-	TimeZone               string
-	WebServiceID           int
-}
-
-func (PurchStatuses) TableName() string {
-	return schemaPG + "Purch_Statuses"
-}
-
-type PurchStatuses struct {
-	StatusID           int    `gorm:"column:StatusID;type:int;foreignkey:PurchOppt.TestType"`
-	StatusName         string `gorm:"column:StatusName;size:30"`
-	TestSystem         int    `gorm:"column:TestSystem;type:int"`
-	TestSystemCallType string `gorm:"column:TestSystemCallType;size:20"`
-}
-
-func (BnumbersHist) TableName() string {
-	return schemaPG + "CallingSys_BnumbersHist"
-}
-
-type BnumbersHist struct {
-	RecordID      int       `gorm:"column:RecordID;type:int;NOT NULL"`
-	Bnumber       string    `gorm:"column:Bnumber;size:30"`
-	DestinationID int       `gorm:"column:DestinationID;type:int"`
-	DateAdd       time.Time `gorm:"column:Date_Add;type:date;default:'now'"`
-	UsedInd       int       `gorm:"column:Used_Ind;type:int;default:0"`
-}
-
-func (RouteList) TableName() string {
-	return schemaPG + "CallingSys_RouteList"
-}
-
-type RouteList struct {
-	RouteID               int    `gorm:"column:RouteID;type:int"`
-	CallingSystemID       int    `gorm:"column:CallingSystemID;type:int;NOT NULL;default:1"`
-	CapturaCarrierID      int    `gorm:"column:Captura_CarrierID;type:int"`
-	RemoteRouteName       string `gorm:"column:Remote_Route_Name;size:100;NOT NULL"`
-	RemoteRouteID         int    `gorm:"column:Remote_Route_ID;type:int"`
-	NetsenseIntAccessCode string `gorm:"column:Netsense_IntAccessCode;size:10"`
-	Dialer                string `gorm:"column:Dialer;size:50"`
-	Prefix                string `gorm:"column:Prefix;size:20"`
-	Codec                 string `gorm:"column:Codec;size:10"`
 }
