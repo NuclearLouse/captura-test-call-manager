@@ -1,4 +1,4 @@
-// structs_capturadb.go
+// capturadb.go
 //
 // The file contains the structures that are needed to work with Captura database tables.
 //
