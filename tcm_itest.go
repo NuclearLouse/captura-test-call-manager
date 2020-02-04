@@ -38,46 +38,58 @@ func (api itestAPI) requestPOST(req string) (*http.Response, error) {
 	return res, nil
 }
 
-func (api itestAPI) runNewTest(db *gorm.DB, fnt foundTest) error {
-	// тут нужен вызов промежуточной функции с преобразованиями значений Captura
-	// var request string
-	// если тест по Б-номеру
-	//   https://api.i-­test.net/?t=2011&profid=12&prefix=34&numbers=1234%%-­5678%%-­12345678
-	// switch fnt.TestType.name() {
-	// case "cli":
-	// 	request = fmt.Sprintf("%s?t=%d&profid=%s&vended=%s&ndbccgid=%s&ndbcgid=%s",
-	// 		api.URL,
-	// 		api.TestInitCli,
-	// 		*.ProfileID,  //из CallingSys_iTest_profiles что это?
-	// 		*.SupplierID, //из CallingSys_iTest_suppliers это как Route у Assure?
-	// 		*.CountryID,  //из CallingSys_iTest_breakouts_cli это как Destination у Assure?
-	// 		*.BreakoutID) //из CallingSys_iTest_breakouts_cli это как Destination у Assure?
-	// case "voice":
-	// 	request = fmt.Sprintf("%s?t=%d&profid=%s&prefix=%s&ndbccgid=%s&ndbcgid=%s",
-	// 		api.URL,
-	// 		api.TestInit,
-	// 		*.ProfileID,  //из CallingSys_iTest_profiles
-	// 		*.Prefix,     //из CallingSys_iTest_suppliers что это?
-	// 		*.CountryID,  //из CallingSys_iTest_breakouts_std
-	// 		*.BreakoutID) //из CallingSys_iTest_breakouts_std
-	// }
-	// response, err := api.requestPOST(request)
-	// if err != nil {
-	// 	return err
-	// }
-	// decoder := xmlDecoder(response)
-	// var ti testInitItest
-	// if err := decoder.Decode(&ti); err != nil {
-	// 	return err
-	// }
-	//TODO: Здесь надо получать аудио УРЛ, можно его записать как Test_Comment в PurchOppt
-	// newTestInfo := PurchOppt{
-	// 	TestingSystemRequestID: ti.Test.TestID,
-	// 	TestComment:            ti.Test.ShareURL,
-	// 	RequestState:           2}
-	// if err := db.Model(&newTestInfo).Where(`"RequestID"=?`, ft.RequestID).Update(newTestInfo).Error; err != nil {
-	// 	return err
-	// }
+func (api itestAPI) parseBNumbers(customBNumbers string) (nums string) {
+	bnums := strings.Split(customBNumbers, "\n")
+	for _, n := range bnums {
+		nums = nums + strings.TrimPrefix(n, "+") + "%%-"
+	}
+	return
+}
+
+func (api itestAPI) runNewTest(db *gorm.DB, nit foundTest) error {
+	//! Default 5 calls for iTest
+	if nit.TestCalls == 0 {
+		return errors.New("zero calls initialized")
+	}
+	// request := api.buildNewTest(nit)
+	var request string
+	var profileID int = 8524 //will get from nit, this is profile_id from CallingSys_iTest_profiles
+	num := nit.TestCalls
+	if nit.BNumber != "" {
+		prefix := 216215 //will get from nit, prefix from CallingSys_iTest_suppliers
+		request = fmt.Sprintf("%s?t=%d&profid=%d&codec=g729&prefix=%d&numbers=%s",
+			api.URL, api.TestInit, profileID, prefix, api.parseBNumbers(nit.BNumber))
+	}
+	countryID := 432   //from CallingSys_iTest_breakouts_cli or CallingSys_iTest_breakouts_std
+	breakoutID := 2517 //from CallingSys_iTest_breakouts_cli or CallingSys_iTest_breakouts_std
+	switch strings.ToLower(nit.TestType) {
+	case "cli":
+		vended := 567349 //nit.SupplierID after sinchronization, supplier_id from CallingSys_iTest_suppliers
+		request = fmt.Sprintf("%s?t=%d&profid=%d&vended=%d&ndbccgid=%d&ndbcgid=%d&qty=%d",
+			api.URL, api.TestInitCli, profileID, vended, countryID, breakoutID, num)
+	case "voice":
+		prefix := 216215 //will get from nit, prefix from CallingSys_iTest_suppliers
+		request = fmt.Sprintf("%s?t=%d&profid=%d&prefix=%d&ndbccgid=%d&ndbcgid=%d&qty=%d",
+			api.URL, api.TestInit, profileID, prefix, countryID, breakoutID, num)
+	}
+
+	response, err := api.requestPOST(request)
+	if err != nil {
+		return err
+	}
+	decoder := xmlDecoder(response)
+	var ti testInitItest
+	if err := decoder.Decode(&ti); err != nil {
+		return err
+	}
+	testinfo := PurchOppt{
+		TestingSystemRequestID: ti.Test.TestID,
+		TestComment:            ti.Test.ShareURL,
+		RequestState:           2}
+	if err := testinfo.updateTestInfo(db, nit.RequestID); err != nil {
+		return err
+	}
+	log.Infof("Successful run test. TestID:%s", ti.Test.TestID)
 	return nil
 }
 
@@ -156,8 +168,10 @@ func (api itestAPI) checkPresentAudioFile(req string) (bool, error) {
 	if res.Header[`Content-Type`][0] != "audio/mpeg" {
 		return false, errors.New("not present audio file")
 	}
+	//"http://share.i-test.net/au/20200203/call-2020020315000005864-r.mp3"
+	//"http://share.i-test.net/au/20200203/call-2020020315000005864.mp3"
 	//call-20200203123456789-r.mp3 or call-20200203123456789.mp3
-	nameFile := strings.Split(req, "/")[3]
+	nameFile := strings.Split(req, "/")[5]
 	if err := createFile(res.Body, nameFile); err != nil {
 		return false, err
 	}
@@ -278,7 +292,7 @@ func (itestAPI) insertCallsInfo(db *gorm.DB, tr testResultItest, ti foundTest) e
 			CallID:                   call.ID,
 			CallListID:               tr.TestOverview.TestID, //ti.TestingSystemRequestID,
 			TestSystem:               ti.SystemID,
-			CallType:                 tr.TestOverview.Type,
+			CallType:                 ti.TestType, //tr.TestOverview.Type,
 			Destination:              call.Destination,
 			CallStart:                time.Unix(call.Start, 0),
 			CallComplete:             time.Unix(int64(call.End), 0),
@@ -363,8 +377,8 @@ type testResultItest struct {
 		End         float64 `xml:"End"`
 		PDD         float64 `xml:"PDD"`
 		MOS         float64 `xml:"MOS"`
-		Ring        string  `xml:"Ring"` //TODO: need float64
-		Call        string  `xml:"Call"` //TODO: need float64
+		Ring        string  `xml:"Ring"`
+		Call        string  `xml:"Call"`
 		LastCode    string  `xml:"Last_Code"`
 		Result      string  `xml:"Result"`
 		ResultCode  int     `xml:"Result_Code"`
