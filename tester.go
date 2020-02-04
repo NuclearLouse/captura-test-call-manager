@@ -116,6 +116,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 					TestedUntil:            time.Now(),
 					TestComment:            err.Error()}
 				if err := newTestInfo.updateTestInfo(db, test.RequestID); err != nil {
+					//TODO: error handler
 					log.Error(999, err.Error())
 				}
 				continue
@@ -139,6 +140,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 						TestedUntil:            time.Now(),
 						TestComment:            err.Error()}
 					if err := newTestInfo.updateTestInfo(db, t.RequestID); err != nil {
+						//TODO: error handler
 						log.Error(999, err.Error())
 					}
 					// newTestInfo.failedTest(db, t.RequestID, "Could not start a new test:"+err.Error())
@@ -153,6 +155,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 						TestedUntil:            time.Now(),
 						TestComment:            err.Error()}
 					if err := newTestInfo.updateTestInfo(db, t.RequestID); err != nil {
+						//TODO: error handler
 						log.Error(999, err.Error())
 					}
 					// newTestInfo.failedTest(db, t.RequestID, "Could not check status"+err.Error())

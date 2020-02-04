@@ -146,6 +146,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 		testinfo := PurchOppt{TestingSystemRequestID: "0",
 			TestedUntil: time.Now(),
 			TestComment: string(body)}
+		//TODO: error handler
 		testinfo.updateTestInfo(db, nit.RequestID)
 		return err
 	}

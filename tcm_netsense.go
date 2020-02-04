@@ -162,6 +162,7 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 			TestingSystemRequestID: "0",
 			TestedUntil:            time.Now(),
 			TestComment:            message}
+		//TODO: error handler
 		testinfo.updateTestInfo(db, nit.RequestID)
 		return err
 	}

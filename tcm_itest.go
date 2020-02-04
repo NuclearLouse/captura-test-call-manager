@@ -179,6 +179,7 @@ func (api itestAPI) checkPresentAudioFile(req string) (bool, error) {
 }
 
 func (api itestAPI) downloadAudioFiles(db *gorm.DB, tr testResultItest) {
+	//TODO: Тут надо пересмотреть всю логику логирования ошибок, заполнения cWaw и cImg и команды continue
 	for _, call := range tr.Call {
 		req := fmt.Sprintf("%s%s/call-%s-r.mp3", api.RepoURL, call.ID[:8], call.ID)
 		fileRing, err := api.checkPresentAudioFile(req)

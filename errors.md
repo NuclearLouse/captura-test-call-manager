@@ -23,7 +23,7 @@
 * 00501 - Could not insert data from response _requestName
 * 00502 - Cann't obtain rows for DataLoaded=false
 * 00503 - Cann't update data row about empty request for call_id
-* 00504 - For call_id
+* 00504 - 
 * 00505 - Cann't decode MP3 file to WAV for call_id
 * 00506 - Cann't create waveform PNG image file for call_id
 * 00507 - Cann't insert WAV file into table for call_id
