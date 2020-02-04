@@ -142,13 +142,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	log.Debug(string(body))
 
 	if newTests.TestBatchID == 0 {
-		err := errors.New("no return TestingSystemRequestID")
-		testinfo := PurchOppt{TestingSystemRequestID: "0",
-			TestedUntil: time.Now(),
-			TestComment: string(body)}
-		//TODO: error handler
-		testinfo.updateTestInfo(db, nit.RequestID)
-		return err
+		return errors.New("response not return TestingSystemRequestID")
 	}
 
 	testinfo := PurchOppt{

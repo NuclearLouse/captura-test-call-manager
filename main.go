@@ -1,19 +1,16 @@
-// Package main of TCM is the main package defining the entry point
-// and which compiles into the tcm or tcm.exe executable.
+// Test Calls Management Service
+// This service integrates NetSense, iTest, Assure test calls systems into Captura System
 //
-// Home page: https://redits.oculeus.com/asorokin/tcm
+// Home page: https://redits.oculeus.com/asorokin/captura_tcm
 //
 //
 // The file contains the function necessary when you first start the program.
 // Which reads the config, creates service directories, connects to the database
-// and creates, if necessary, tables.
-// The main function itself contains only the start of initialization
-// and the start of the main service.
+// and creates, if necessary, tables, sets global variables and starts the service itself.
 //
 package main
 
 import (
-	// l "log"
 	"fmt"
 	"os"
 	"os/signal"

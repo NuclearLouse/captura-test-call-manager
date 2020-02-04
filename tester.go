@@ -55,13 +55,11 @@ func runService(cfg *Config, db *gorm.DB) {
 	}
 }
 
+// The main function that works at a given interval and checks for new tests
 func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 	for {
 		sysName := api.sysName(db)
-		// po="Purch_Oppt"
-		// ps="Purch_Statuses"
-		// ss="CallingSys_Settings"
-		// rt="CallingSys_RouteList"
+		// po="Purch_Oppt" | ps="Purch_Statuses"| ss="CallingSys_Settings"| rt="CallingSys_RouteList"
 		query := fmt.Sprintf(`SELECT po."Request_by_User",
 		po."RequestID",
 		COALESCE(po."TestingSystemRequestID",'') "TestingSystemRequestID",
@@ -116,8 +114,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 					TestedUntil:            time.Now(),
 					TestComment:            err.Error()}
 				if err := newTestInfo.updateTestInfo(db, test.RequestID); err != nil {
-					//TODO: error handler
-					log.Error(999, err.Error())
+					log.Errorf(1, "Cann't insert data about 'not add individual test to the test list'|%v", err)
 				}
 				continue
 			}
@@ -140,10 +137,8 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 						TestedUntil:            time.Now(),
 						TestComment:            err.Error()}
 					if err := newTestInfo.updateTestInfo(db, t.RequestID); err != nil {
-						//TODO: error handler
-						log.Error(999, err.Error())
+						log.Errorf(1, "Cann't insert data about 'not start new test'|%v", err)
 					}
-					// newTestInfo.failedTest(db, t.RequestID, "Could not start a new test:"+err.Error())
 					continue
 				}
 			case 2:
@@ -155,10 +150,8 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 						TestedUntil:            time.Now(),
 						TestComment:            err.Error()}
 					if err := newTestInfo.updateTestInfo(db, t.RequestID); err != nil {
-						//TODO: error handler
-						log.Error(999, err.Error())
+						log.Errorf(1, "Cann't insert data about 'check test status'|%v", err)
 					}
-					// newTestInfo.failedTest(db, t.RequestID, "Could not check status"+err.Error())
 					continue
 				}
 			}
@@ -167,10 +160,15 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 	}
 }
 
+//Function that works at a specified interval and removes old tests
 func checkOldTests(cfg *Config, db *gorm.DB) {
 	for {
 		log.Debug("Start function delete old test info")
-		if err := deleteOldTestInfo(db); err != nil {
+		query := fmt.Sprintf(`DELETE FROM %s"CallingSys_TestResults" AS t1 
+		USING %[1]s"CallingSys_Settings" AS t2 
+		WHERE t1."TestSystem"=t2."SystemID" 
+		AND (CURRENT_TIMESTAMP::date-t1."CallComplete"::date)>t2."Log_Period";`, schemaPG)
+		if err := db.Exec(query).Error; err != nil {
 			log.Errorf(2, "Error delete old test info|%v", err)
 		}
 		log.Debugf("Next delete old tests info after %d hours", cfg.Application.IntervalDeleteTests)

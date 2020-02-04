@@ -156,15 +156,8 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 			return err
 		}
 	case "400":
-		message := fmt.Sprintf("Bad Request. Error code:%s. %s\n", newTests.CallListResponseArray.SubStatus.List.Status.Code, newTests.CallListResponseArray.SubStatus.List.Status.Message)
-		err := errors.New(message)
-		testinfo := PurchOppt{
-			TestingSystemRequestID: "0",
-			TestedUntil:            time.Now(),
-			TestComment:            message}
-		//TODO: error handler
-		testinfo.updateTestInfo(db, nit.RequestID)
-		return err
+		message := fmt.Sprintf("Bad Request.Error code:%s.%s\n", newTests.CallListResponseArray.SubStatus.List.Status.Code, newTests.CallListResponseArray.SubStatus.List.Status.Message)
+		return errors.New(message)
 	}
 
 	log.Info("Successful run test. TestID:", newTests.CallListResponseArray.ResponseID)

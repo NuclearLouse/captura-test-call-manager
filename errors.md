@@ -1,5 +1,5 @@
 **Common errors, files: main.go, tester.go, tools.go**
-* 00001 - reserve
+* 00001 - Cann't insert data on Purch_Oppt
 * 00002 - Error delete old test info
 * 00003 - Cann't update API settings for the system _sysname
 * 00004 - Cann't delete file
