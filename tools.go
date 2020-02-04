@@ -68,14 +68,15 @@ func createDir(nameDir string) error {
 	return nil
 }
 
-func deleteFiles(nameFiles []string) error {
+func deleteFiles(nameFiles []string) {
 	var err error
-	for i := range nameFiles {
-		if err = os.Remove(nameFiles[i]); err == nil {
-			log.Debug("Successefuly delete file", nameFiles[i])
+	for _, file := range nameFiles {
+		if err = os.Remove(file); err != nil {
+			log.Error(4, "Cann't delete file", file)
+			continue
 		}
+		log.Debug("Successefuly delete file", file)
 	}
-	return err
 }
 
 func execCommand(com string) ([]byte, error) {
@@ -97,6 +98,12 @@ func execCommand(com string) ([]byte, error) {
 func waveFormImage(nameFile string, x int) ([]byte, error) {
 	pathWavFile := srvTmpFolder + nameFile + ".wav"
 	pathPngFile := srvTmpFolder + nameFile + ".png"
+
+	if _, err := os.Stat(pathPngFile); !os.IsNotExist(err) {
+		if err := os.Remove(pathPngFile); err != nil {
+			log.Error(4, "Cann't delete file", pathPngFile)
+		}
+	}
 	com := fmt.Sprintln(fmt.Sprintf(ffmpegWavFormImg, pathWavFile, pathPngFile))
 	_, err := execCommand(com)
 	if err != nil {
@@ -120,6 +127,11 @@ func waveFormImage(nameFile string, x int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	listDeleteFiles := []string{
+		pathWavFile,
+		pathPngFile,
+		pathBmpFile}
+	deleteFiles(listDeleteFiles)
 	return content, nil
 }
 
@@ -177,6 +189,12 @@ func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
 func decodeToWAV(nameFile, codec string) ([]byte, error) {
 	file := srvTmpFolder + nameFile + "." + codec
 	fileWAV := srvTmpFolder + nameFile + ".wav"
+
+	if _, err := os.Stat(fileWAV); !os.IsNotExist(err) {
+		if err := os.Remove(fileWAV); err != nil {
+			log.Error(4, "Cann't delete file", fileWAV)
+		}
+	}
 	com := fmt.Sprintln(fmt.Sprintf(ffmpegDecodeToWav, file, fileWAV))
 	_, err := execCommand(com)
 	// log.Debug(com)
@@ -186,6 +204,10 @@ func decodeToWAV(nameFile, codec string) ([]byte, error) {
 	content, err := ioutil.ReadFile(fileWAV)
 	if err != nil && err != io.EOF {
 		return nil, err
+	}
+
+	if err := os.Remove(file); err != nil {
+		log.Error(4, "Cann't delete file", file)
 	}
 	return content, nil
 }
@@ -361,7 +383,9 @@ func uncompressGZ(name string) error {
 	outfileWriter.Close()
 	gzipReader.Close()
 	gzipFile.Close()
-
+	if err := os.Remove(pathGZ); err != nil {
+		log.Error(4, "Cann't delete file", pathGZ)
+	}
 	return nil
 }
 
@@ -413,14 +437,22 @@ func createFile(rc io.ReadCloser, nameFile string) error {
 
 func concatMP3files(callID string) error {
 	//call-20200203123456789-r.mp3 or call-20200203123456789.mp3
-	pathBeep := srvTmpFolder + "call-" + callID + "-r.mp3"
+	pathRing := srvTmpFolder + "call-" + callID + "-r.mp3"
 	pathAnsw := srvTmpFolder + "call-" + callID + ".mp3"
 	pathOut := srvTmpFolder + "out-" + callID + ".mp3"
-	com := fmt.Sprintln(fmt.Sprintf(ffmpegConcatMP3, pathBeep, pathAnsw, pathOut))
+
+	if _, err := os.Stat(pathOut); !os.IsNotExist(err) {
+		if err := os.Remove(pathOut); err != nil {
+			log.Error(4, "Cann't delete file", pathOut)
+		}
+	}
+	com := fmt.Sprintln(fmt.Sprintf(ffmpegConcatMP3, pathRing, pathAnsw, pathOut))
 	_, err := execCommand(com)
 	if err != nil {
 		return err
 	}
+	listDeleteFiles := []string{pathRing, pathAnsw}
+	deleteFiles(listDeleteFiles)
 	return nil
 }
 

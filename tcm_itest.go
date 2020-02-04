@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -179,17 +180,26 @@ func (api itestAPI) checkPresentAudioFile(req string) (bool, error) {
 }
 
 func (api itestAPI) downloadAudioFiles(db *gorm.DB, tr testResultItest) {
-	//TODO: Тут надо пересмотреть всю логику логирования ошибок, заполнения cWaw и cImg и команды continue
 	for _, call := range tr.Call {
 		req := fmt.Sprintf("%s%s/call-%s-r.mp3", api.RepoURL, call.ID[:8], call.ID)
 		fileRing, err := api.checkPresentAudioFile(req)
 		if err != nil {
-			log.Error(999, err.Error())
+			switch err.Error() {
+			case "not present audio file":
+				log.Infof("Test %v 'ring' for callID:%s", err, call.ID)
+			default:
+				log.Errorf(502, "Error in 'ring'checkPresentAudioFile function for callID:%s|%v", call.ID, err)
+			}
 		}
 		req = fmt.Sprintf("%s%s/call-%s.mp3", api.RepoURL, call.ID[:8], call.ID)
 		fileAnsw, err := api.checkPresentAudioFile(req)
 		if err != nil {
-			log.Error(999, err.Error())
+			switch err.Error() {
+			case "not present audio file":
+				log.Infof("Test %v 'answer' for callID:%s", err, call.ID)
+			default:
+				log.Errorf(502, "Error in 'answer'checkPresentAudioFile function for callID:%s|%v", call.ID, err)
+			}
 		}
 		var nameFile string
 		var cWav, cImg []byte
@@ -206,20 +216,13 @@ func (api itestAPI) downloadAudioFiles(db *gorm.DB, tr testResultItest) {
 				continue
 			}
 			log.Info("Concatenate ring and answer mp3 files for call_id", call.ID)
-			listDeleteFiles := []string{
-				srvTmpFolder + "call-" + call.ID + "-r.mp3",
-				srvTmpFolder + "call-" + call.ID + ".mp3",
-			}
-			if err = deleteFiles(listDeleteFiles); err != nil {
-				log.Errorf(508, "Cann't delete ring or answer mp3 files for call_id %s|%v", call.ID, err)
-			}
+
 			nameFile = "out-" + call.ID
 		case fileRing && !fileAnsw:
 			nameFile = "call-" + call.ID + "-r"
 		case !fileRing && fileAnsw:
 			nameFile = "call-" + call.ID
 		case !fileRing && !fileAnsw:
-			log.Debug("There are not beep and answer audio files for call_id", call.ID)
 			if err = insertEmptyFiles(db, call.ID); err != nil {
 				log.Errorf(503, "Cann't update data row about empty request for call_id %s|%v", call.ID, err)
 			}
@@ -239,13 +242,6 @@ func (api itestAPI) downloadAudioFiles(db *gorm.DB, tr testResultItest) {
 		}
 		log.Info("Created image PNG file for call_id", call.ID)
 
-		listDeleteFiles := []string{
-			srvTmpFolder + nameFile + ".mp3",
-			srvTmpFolder + nameFile + ".wav",
-			srvTmpFolder + nameFile + ".png",
-			srvTmpFolder + nameFile + ".bmp",
-		}
-
 		callsinfo := CallingSysTestResults{
 			DataLoaded:  true,
 			AudioFile:   cWav,
@@ -258,8 +254,8 @@ func (api itestAPI) downloadAudioFiles(db *gorm.DB, tr testResultItest) {
 		}
 		log.Info("Insert WAV and IMG file for callid", call.ID)
 
-		if err = deleteFiles(listDeleteFiles); err != nil {
-			log.Errorf(512, "Cann't delete beep or answer mp3 files for call_id %s|%v", call.ID, err)
+		if err := os.Remove(nameFile); err != nil {
+			log.Error(4, "Cann't delete file", nameFile)
 		}
 	}
 	log.Infof("All present files download from %s server and upload into the table TestResults", api.SystemName)

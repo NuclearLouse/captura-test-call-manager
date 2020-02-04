@@ -2,7 +2,7 @@
 * 00001 - reserve
 * 00002 - Error delete old test info
 * 00003 - Cann't update API settings for the system _sysname
-* 00004 - reserve
+* 00004 - Cann't delete file
 * 00005 - reserve
 * 00006 - Could not select tests to check status for system _sysname
 * 00007 - Could not start a new test _testid for system _sysname
@@ -16,18 +16,18 @@
 * 00402 - Cann't download the audio file for call_id
 * 00403 - Cann't create waveform PNG image file for call_id
 * 00404 - Cann't insert WAV file into table for call_id
-* 00405 - Cann't delete some files for call_id
+* 00405 - 
 ---
 **iTest system errors, file: tcm_itest.go**
-* 00500 - Failed to get a response to the reques _requestName
-* 00501 - Could not insert data from response _requestName
-* 00502 - Cann't obtain rows for DataLoaded=false
+* 00500 - 
+* 00501 - 
+* 00502 - Error in checkPresentAudioFile function
 * 00503 - Cann't update data row about empty request for call_id
 * 00504 - 
 * 00505 - Cann't decode MP3 file to WAV for call_id
 * 00506 - Cann't create waveform PNG image file for call_id
 * 00507 - Cann't insert WAV file into table for call_id
-* 00508 - Cann't delete beep or answer mp3 files for call_id
+* 00508 - 
 * 00509 - Cann't get the coordinate of the beginning of the answer for call_id
 * 00510 - Cann't concatenate beep and answer MP3 files for call_id
 ---
@@ -43,4 +43,4 @@
 * 00608 - Error decode to wav file for call_id
 * 00609 - Cann't create waveform PNG image file for call_id
 * 00610 - Cann't insert WAV file into table for call_id
-* 00611 - Cann't delete some files for call_id
+* 00611 - 

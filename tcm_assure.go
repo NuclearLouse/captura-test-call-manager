@@ -272,7 +272,6 @@ func (api assureAPI) downloadAudioFiles(db *gorm.DB, tr testResultAssure) {
 		if err != nil || len(cWav) == 0 {
 			log.Errorf(608, "Error decode to wav file for call_id %s|%v", callID, err)
 			cWav = []byte("C&V:Cann't decode to wav file")
-			// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
 			continue
 		}
 		log.Info("Created WAV file for call_id", callID)
@@ -283,18 +282,9 @@ func (api assureAPI) downloadAudioFiles(db *gorm.DB, tr testResultAssure) {
 		if err != nil || len(cImg) == 0 {
 			log.Errorf(609, "Cann't create waveform image file for call_id %s|%v", callID, err)
 			cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
-			// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
 			continue
 		}
 		log.Info("Created image PNG file for call_id", callID)
-
-		listDeleteFiles := []string{
-			srvTmpFolder + callID + ".amr.gz",
-			srvTmpFolder + callID + ".amr",
-			srvTmpFolder + callID + ".wav",
-			srvTmpFolder + callID + ".png",
-			srvTmpFolder + callID + ".bmp",
-		}
 
 		callsinfo := CallingSysTestResults{
 			DataLoaded: true,
@@ -306,10 +296,6 @@ func (api assureAPI) downloadAudioFiles(db *gorm.DB, tr testResultAssure) {
 			continue
 		}
 		log.Info("Insert WAV and IMG file for callid", callID)
-
-		if err = deleteFiles(listDeleteFiles); err != nil {
-			log.Errorf(611, "Cann't delete some files for call_id %s|%v", callID, err)
-		}
 	}
 }
 

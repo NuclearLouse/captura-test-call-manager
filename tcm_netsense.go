@@ -200,7 +200,6 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	var statistic PurchOppt
 	switch ts.CallListResponseArray.CallLogResponses.Status {
 	case "RUNNING":
-		//TODO: Может нужен какой-то таймаут для запущенных тестов, некоторые могут висеть бесконечно.
 		log.Debug("Wait. The test status is RUNNING for test_ID:", testid)
 		return nil
 	case "END":
@@ -326,15 +325,9 @@ func (api netSenseAPI) downloadAudioFiles(db *gorm.DB, tr testResultNetsense) {
 		if err != nil || len(cImg) == 0 {
 			log.Errorf(403, "Cann't create waveform image file for call_id %s|%v", callID, err)
 			cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
-			// тут нужна проверка на очистку временной папки и вставка этой записи в таблицу
 			continue
 		}
 		log.Info("Created image PNG file for call_id", callID)
-		listDeleteFiles := []string{
-			srvTmpFolder + callID + ".wav",
-			srvTmpFolder + callID + ".png",
-			srvTmpFolder + callID + ".bmp",
-		}
 
 		callsinfo := CallingSysTestResults{
 			DataLoaded: true,
@@ -346,10 +339,6 @@ func (api netSenseAPI) downloadAudioFiles(db *gorm.DB, tr testResultNetsense) {
 			continue
 		}
 		log.Info("Insert WAV and IMG file for callid", callID)
-
-		if err = deleteFiles(listDeleteFiles); err != nil {
-			log.Errorf(405, "Cann't delete some files for call_id %s|%v", callID, err)
-		}
 	}
 }
 
