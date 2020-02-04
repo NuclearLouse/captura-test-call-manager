@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -123,23 +122,16 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 		return err
 	}
 	log.Debug("Build request body: ", string(jsonBody))
-	response, err := api.requestPOST(api.StatusTests, jsonBody)
-	if err != nil {
-		return err
-	}
-
-	body, err := ioutil.ReadAll(response.Body)
+	res, err := api.requestPOST(api.StatusTests, jsonBody)
 	if err != nil {
 		return err
 	}
 
 	var newTests testStatusAssure
-	if err := json.Unmarshal(body, &newTests); err != nil {
+	if err := json.NewDecoder(res.Body).Decode(&newTests); err != nil {
 		return err
 	}
-	response.Body.Close()
-
-	log.Debug(string(body))
+	res.Body.Close()
 
 	if newTests.TestBatchID == 0 {
 		return errors.New("response not return TestingSystemRequestID")
@@ -163,15 +155,13 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		return err
 	}
 	log.Debugf("Successful response to the request Complete_Test for system %s test_ID %s", api.SystemName, testid)
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
+
+	var result testStatusAssure
+	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
 		return err
 	}
 	res.Body.Close()
-	var result testStatusAssure
-	if err := json.Unmarshal(body, &result); err != nil {
-		return err
-	}
+
 	var statistic PurchOppt
 	switch result.StatusID {
 	case 0, 1, 2, 3:
@@ -192,15 +182,13 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			return err
 		}
 		log.Infof("Successful response to the request TestResults for system %s test_ID %s", api.SystemName, testid)
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
-		defer res.Body.Close()
+
 		var callsinfo testResultAssure
-		if err := json.Unmarshal(body, &callsinfo); err != nil {
+		if err := json.NewDecoder(res.Body).Decode(&callsinfo); err != nil {
 			return err
 		}
+		res.Body.Close()
+
 		start := time.Now()
 		log.Debugf("Start transaction insert into the table TestResults for system Assure test_id %s", testid)
 		if err := api.insertCallsInfo(db, callsinfo, lt); err != nil {
@@ -329,7 +317,7 @@ func (assureAPI) TableName() string {
 }
 
 type assureAPI struct {
-	SystemName        string `gorm:"size:50;foreignkey:CallingSys_Settings.SystemName"`
+	SystemName        string `gorm:"size:50"`
 	SystemID          int    `gorm:"type:int"`
 	URL               string `gorm:"size:100"`
 	User              string `gorm:"size:100"`

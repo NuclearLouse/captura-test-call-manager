@@ -41,13 +41,13 @@ func createTables(db *gorm.DB) error {
 		&assureAPI{},
 	}
 	var errs error
-	for i := range listTables {
-		// if err := db.AutoMigrate(listTables[i]).Error; err != nil {
+	for _, table := range listTables {
+		// if err := db.AutoMigrate(table).Error; err != nil {
 		// 	log.Errorf(9, "Cann't create table|%v", err)
 		// 	errs = err
 		// }
-		if !db.HasTable(listTables[i]) {
-			if err := db.CreateTable(listTables[i]).Error; err != nil {
+		if !db.HasTable(table) {
+			if err := db.CreateTable(table).Error; err != nil {
 				if !strings.Contains(err.Error(), "already exists") {
 					log.Errorf(9, "Cann't create table|%v", err)
 					errs = err
@@ -115,7 +115,6 @@ func waveFormImage(nameFile string, x int) ([]byte, error) {
 	}
 
 	// drawing a vertical red line indicating the beginning of the answer
-	// if strings.HasPrefix(nameFile, "out_") {
 	if x != 0 {
 		if err := drawVLine(pathPngFile, x); err != nil {
 			return nil, err
@@ -320,6 +319,8 @@ func (po PurchOppt) updateStatistic(db *gorm.DB, id string) error {
 	return db.Model(&po).Where(`"TestingSystemRequestID"=?`, id).Update(po).Error
 }
 
+// The following three functions bring the response fields containing time to a common format
+// and type of time, since all systems represent time in different formats.
 func iTestParseTime(strTime string) time.Time {
 	var t time.Time
 	if strTime == "" {
@@ -414,9 +415,9 @@ func ignoreWrongNode(resp io.ReadCloser) (io.Reader, error) {
 	return strings.NewReader(newResp), nil
 }
 
-// The iTest system returns its xml responses not in the standard UTF-8 encoding,
-// but in ISO-8859-1, so I had to use an additional decoder.
-func xmlDecoder(res *http.Response) *xml.Decoder {
+// The iTest system returns its xml responses not in the standard
+// UTF-8 encoding, but in ISO-8859-1, so I had to use an CharsetReader function.
+func xmlNewDecoder(res *http.Response) *xml.Decoder {
 	decoder := xml.NewDecoder(res.Body)
 	decoder.Strict = false
 	decoder.CharsetReader = charset.NewReaderLabel
@@ -435,10 +436,6 @@ func createFile(rc io.ReadCloser, nameFile string) error {
 	if err != nil {
 		return err
 	}
-	// _, err = ioutil.ReadFile(filepath)
-	// if err != nil {
-	// 	return err
-	// }
 	return nil
 }
 
@@ -466,6 +463,8 @@ func concatMP3files(callID string) error {
 
 // The function calculates the vertical bar coordinate,
 // depending on the duration of the ring and answer audio files.
+// And it returns this coordinate as a duration in seconds
+// from the start of the call and as the number of pixels.
 func calcCoordinate(callID string) (float64, int, error) {
 	var files [2]string
 	files[0] = srvTmpFolder + "call-" + callID + "-r.mp3"

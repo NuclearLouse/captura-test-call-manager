@@ -131,21 +131,16 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 
 	}
 	log.Debug("Build request body: ", string(xmlBody))
-	response, err := api.requestPOST(api.TestInitList, xmlBody)
-	if err != nil {
-		return err
-	}
-
-	body, err := ioutil.ReadAll(response.Body)
+	res, err := api.requestPOST(api.TestInitList, xmlBody)
 	if err != nil {
 		return err
 	}
 
 	var newTests testInitResponse
-	if err := xml.Unmarshal(body, &newTests); err != nil {
+	if err := xml.NewDecoder(res.Body).Decode(&newTests); err != nil {
 		return err
 	}
-	response.Body.Close()
+	res.Body.Close()
 
 	switch newTests.CallListResponseArray.Status.Code {
 	case "200":
@@ -179,17 +174,13 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
 
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-	// fmt.Println(string(body))
 	var ts testStatusNetsense
-	if err := xml.Unmarshal(body, &ts); err != nil {
+	if err := xml.NewDecoder(res.Body).Decode(&ts); err != nil {
 		return err
 	}
+	res.Body.Close()
+
 	var statistic PurchOppt
 	switch ts.CallListResponseArray.CallLogResponses.Status {
 	case "RUNNING":
@@ -203,24 +194,15 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		if err != nil {
 			return err
 		}
-		defer res.Body.Close()
 
 		log.Infof("Successful response to the request TestResults for system Assure test_ID %s", testid)
 
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
-
-		//! If need, save response xml file for debug
-		// if err := ioutil.WriteFile("test_"+testid+".xml", body, 0666); err != nil {
-		// 	return err
-		// }
-
 		var callsinfo testResultNetsense
-		if err := xml.Unmarshal(body, &callsinfo); err != nil {
+		if err := xml.NewDecoder(res.Body).Decode(&callsinfo); err != nil {
 			return err
 		}
+		res.Body.Close()
+
 		start := time.Now()
 		log.Debugf("Start transaction insert into the table TestResults for system Netsense test_id %s", testid)
 		testedFrom, err := api.insertCallsInfo(db, callsinfo, lt)
@@ -363,7 +345,7 @@ func (netSenseAPI) TableName() string {
 }
 
 type netSenseAPI struct {
-	SystemName       string `gorm:"size:50;foreignkey:CallingSys_Settings.SystemName"`
+	SystemName       string `gorm:"size:50"`
 	SystemID         int    `gorm:"type:int"`
 	URL              string `gorm:"size:100"`
 	User             string `gorm:"size:100"`

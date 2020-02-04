@@ -10,7 +10,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -52,8 +51,8 @@ func (api itestAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	if nit.TestCalls == 0 {
 		return errors.New("zero calls initialized")
 	}
-	// request := api.buildNewTest(nit)
 	var request string
+	// !All numerical values ​​are given as an example.
 	var profileID int = 8524 //will get from nit, this is profile_id from CallingSys_iTest_profiles
 	num := nit.TestCalls
 	if nit.BNumber != "" {
@@ -74,15 +73,17 @@ func (api itestAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 			api.URL, api.TestInit, profileID, prefix, countryID, breakoutID, num)
 	}
 
-	response, err := api.requestPOST(request)
+	res, err := api.requestPOST(request)
 	if err != nil {
 		return err
 	}
-	decoder := xmlDecoder(response)
+
 	var ti testInitItest
-	if err := decoder.Decode(&ti); err != nil {
+	if err := xmlNewDecoder(res).Decode(&ti); err != nil {
 		return err
 	}
+	res.Body.Close()
+
 	testinfo := PurchOppt{
 		TestingSystemRequestID: ti.Test.TestID,
 		TestComment:            ti.Test.ShareURL,
@@ -95,9 +96,8 @@ func (api itestAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 }
 
 func (api itestAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
-	sysname := lt.SystemName //or api.sysName()
 	testid := lt.TestingSystemRequestID
-	log.Debugf("Sending a request Complete_Test system %s for test_id %s", sysname, testid)
+	log.Debugf("Sending a request Complete_Test system %s for test_id %s", lt.SystemName, testid)
 	req := fmt.Sprintf("%s?t=%d&jid=%s", api.URL, api.TestStatus, testid)
 	res, err := api.requestPOST(req)
 	log.Debug("Complete Test response", res)
@@ -111,41 +111,39 @@ func (api itestAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		}
 	}()
 
-	log.Debugf("Successful response to the request Complete_Test for system %s test_ID %s", sysname, testid)
+	log.Debugf("Successful response to the request Complete_Test for system %s test_ID %s", lt.SystemName, testid)
 	newResp, err := ignoreWrongNode(res.Body)
 	if err != nil {
 		return err
 	}
 	res.Body.Close()
-	body, err := ioutil.ReadAll(newResp)
-	if err != nil {
+
+	var ts testStatusItest
+	if err := xml.NewDecoder(newResp).Decode(&ts); err != nil {
 		return err
 	}
 
-	var s testStatusItest
-	if err := xml.Unmarshal(body, &s); err != nil {
-		return err
-	}
-
-	if s.CallsTotal == s.CallsComplete {
+	if ts.CallsTotal == ts.CallsComplete {
 		req := fmt.Sprintf("%s?t=%d&jid=%s", api.URL, api.TestStatusDetails, testid)
 		res, err := api.requestPOST(req)
-		log.Debugf("Sending request TestResults fot system %s test_ID %s", sysname, testid)
+		log.Debugf("Sending request TestResults fot system %s test_ID %s", lt.SystemName, testid)
 		if err != nil {
 			return err
 		}
-		log.Infof("Successful response to the request TestResults for system %s test_ID %s", sysname, testid)
-		decoder := xmlDecoder(res)
+		log.Infof("Successful response to the request TestResults for system %s test_ID %s", lt.SystemName, testid)
+
 		var tr testResultItest
-		if err := decoder.Decode(&tr); err != nil {
+		if err := xmlNewDecoder(res).Decode(&tr); err != nil {
 			return err
 		}
+		res.Body.Close()
+
 		start := time.Now()
-		log.Debugf("Start transaction insert into the table TestResults for system %s test_id %s", sysname, testid)
+		log.Debugf("Start transaction insert into the table TestResults for system %s test_id %s", lt.SystemName, testid)
 		if err := api.insertCallsInfo(db, tr, lt); err != nil {
 			return err
 		}
-		log.Infof("Successfully insert data from table TestResults for system %s test_ID %s", sysname, testid)
+		log.Infof("Successfully insert data from table TestResults for system %s test_ID %s", lt.SystemName, testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
 		statistic := callsStatistic(db, testid)
 		statistic.TestedFrom = time.Unix(tr.TestOverview.Init, 0)
@@ -202,7 +200,6 @@ func (api itestAPI) downloadAudioFiles(db *gorm.DB, tr testResultItest) {
 			}
 		}
 		var nameFile string
-		var cWav, cImg []byte
 		var connectTime float64
 		var x int
 		switch {
@@ -228,13 +225,13 @@ func (api itestAPI) downloadAudioFiles(db *gorm.DB, tr testResultItest) {
 			}
 			continue
 		}
-		cWav, err = decodeToWAV(nameFile, "mp3")
+		cWav, err := decodeToWAV(nameFile, "mp3")
 		if err != nil {
 			log.Errorf(505, "Cann't decode MP3 file to WAV for call_id %s|%v", call.ID, err)
 			continue
 		}
 		log.Info("Decod mp3 files to WAV for call_id", call.ID)
-		cImg, err = waveFormImage(nameFile, x)
+		cImg, err := waveFormImage(nameFile, x)
 		if err != nil || len(cImg) == 0 {
 			log.Errorf(506, "Cann't create waveform PNG image file for call_id %s|%v", call.ID, err)
 			cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
@@ -254,7 +251,7 @@ func (api itestAPI) downloadAudioFiles(db *gorm.DB, tr testResultItest) {
 		}
 		log.Info("Insert WAV and IMG file for callid", call.ID)
 
-		if err := os.Remove(nameFile); err != nil {
+		if err := os.Remove(nameFile + ".mp3"); err != nil {
 			log.Error(4, "Cann't delete file", nameFile)
 		}
 	}
@@ -287,9 +284,9 @@ func (itestAPI) insertCallsInfo(db *gorm.DB, tr testResultItest, ti foundTest) e
 		callinfo := CallingSysTestResults{
 			AudioURL:                 ti.TestComment,
 			CallID:                   call.ID,
-			CallListID:               tr.TestOverview.TestID, //ti.TestingSystemRequestID,
+			CallListID:               tr.TestOverview.TestID,
 			TestSystem:               ti.SystemID,
-			CallType:                 ti.TestType, //tr.TestOverview.Type,
+			CallType:                 ti.TestType,
 			Destination:              call.Destination,
 			CallStart:                time.Unix(call.Start, 0),
 			CallComplete:             time.Unix(int64(call.End), 0),
@@ -299,7 +296,7 @@ func (itestAPI) insertCallsInfo(db *gorm.DB, tr testResultItest, ti foundTest) e
 			BNumber:                  prefixAndBnumber[1],
 			BNumberDialed:            call.Destination,
 			CallingNumber:            call.Source,
-			Route:                    tr.TestOverview.Supplier, //ti.RouteCarrier,
+			Route:                    tr.TestOverview.Supplier,
 			CauseCodeID:              call.ResultCode,
 			Status:                   call.LastCode,
 			CliDetectedCallingNumber: call.CLI,
@@ -320,7 +317,7 @@ func (itestAPI) TableName() string {
 }
 
 type itestAPI struct {
-	SystemName        string `gorm:"size:50;foreignkey:CallingSys_Settings.SystemName"`
+	SystemName        string `gorm:"size:50"`
 	URL               string `gorm:"size:100"`
 	RepoURL           string `gorm:"size:100"`
 	User              string `gorm:"size:100"`
