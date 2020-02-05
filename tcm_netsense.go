@@ -26,6 +26,11 @@ func (api *netSenseAPI) sysName(db *gorm.DB) string {
 	return api.SystemName
 }
 
+func (api *netSenseAPI) sysID(db *gorm.DB) int {
+	db.Take(api)
+	return api.SystemID
+}
+
 func (api netSenseAPI) checkAuth(db *gorm.DB) bool {
 	return true
 }
@@ -349,7 +354,7 @@ type netSenseAPI struct {
 	SystemID         int    `gorm:"type:int"`
 	URL              string `gorm:"size:100"`
 	User             string `gorm:"size:100"`
-	AuthKey          string `gorm:"size:100"`
+	AuthKey          string `gorm:"column:pass;size:100"`
 	TestInit         string `gorm:"size:100"`
 	TestInitList     string `gorm:"size:100"`
 	GetCallListid    string `gorm:"size:100"`

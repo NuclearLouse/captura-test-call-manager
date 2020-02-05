@@ -17,19 +17,19 @@ const (
 func (l Level) String() string {
 	switch l {
 	case LevelTrace:
-		return "**TRACE**  "
+		return "***TRACE***"
 	case LevelDebug:
-		return "**DEBUG**  "
+		return "***DEBUG***"
 	case LevelInfo:
-		return "**STATUS** "
+		return "***STATUS**"
 	case LevelWarn:
 		return "**WARNING**"
 	case LevelError:
-		return "**ERROR**  "
+		return "***ERROR***"
 	case LevelPanic:
 		return "**FAILURE**"
 	case LevelFatal:
-		return "**FATAL**  "
+		return "***FATAL***"
 	default:
 		return "<NA>"
 	}

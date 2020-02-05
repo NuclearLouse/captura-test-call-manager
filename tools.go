@@ -39,6 +39,8 @@ func createTables(db *gorm.DB) error {
 		&itestAPI{},
 		&netSenseAPI{},
 		&assureAPI{},
+		&assureRoute{},
+		&assureDestination{},
 	}
 	var errs error
 	for _, table := range listTables {

@@ -143,5 +143,5 @@ func waitForSignal() {
 		syscall.SIGTERM,
 		syscall.SIGQUIT)
 	s := <-sigChan
-	log.Warnf("Exit the program. Got signal %s", s)
+	log.Fatal(11111, "Exit the program. Reason: got signal", s)
 }

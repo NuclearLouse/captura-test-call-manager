@@ -26,6 +26,11 @@ func (api *assureAPI) sysName(db *gorm.DB) string {
 	return api.SystemName
 }
 
+func (api *assureAPI) sysID(db *gorm.DB) int {
+	db.Take(api)
+	return api.SystemID
+}
+
 func (api assureAPI) checkAuth(db *gorm.DB) bool {
 	return true
 }

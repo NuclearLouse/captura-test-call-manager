@@ -18,6 +18,7 @@ func newDB(cfg *Config, pass string) (*gorm.DB, error) {
 	if err := db.DB().Ping(); err != nil {
 		return nil, err
 	}
+	// db.LogMode(true)
 	return db, nil
 }
 

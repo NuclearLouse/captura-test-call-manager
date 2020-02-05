@@ -26,6 +26,11 @@ func (api *itestAPI) sysName(db *gorm.DB) string {
 	return api.SystemName
 }
 
+func (api *itestAPI) sysID(db *gorm.DB) int {
+	db.Take(api)
+	return api.SystemID
+}
+
 func (api itestAPI) checkAuth(db *gorm.DB) bool {
 	return true
 }

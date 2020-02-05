@@ -17,7 +17,9 @@ import (
 
 type tester interface {
 	sysName(*gorm.DB) string
+	sysID(*gorm.DB) int
 	runNewTest(*gorm.DB, foundTest) error
+	runSyncro(*gorm.DB, syncAutomation) error
 	checkTestComplete(*gorm.DB, foundTest) error
 	// checkAuth(*gorm.DB) bool
 }
@@ -52,8 +54,7 @@ func runService(cfg *Config, db *gorm.DB) {
 		// if cfg.Application.PrepareRequest {
 		// 	go ts[i].prepareRequests(db, cfg.Application.IntervalPrepareTests)
 		// }
-
-		go runSync(db, ts[i], cfg.Application.IntervalCheckSyncro)
+		go checkNewSync(db, ts[i], cfg.Application.IntervalCheckSyncro)
 		go checkTestStatus(db, ts[i], cfg.Application.IntervalCheckTests)
 
 	}
