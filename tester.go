@@ -12,7 +12,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
-	log "redits.oculeus.com/asorokin/my_packages/logging"
+	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
 )
 
 type tester interface {
@@ -24,6 +24,8 @@ type tester interface {
 
 func runService(cfg *Config, db *gorm.DB) {
 	log.Info("*************Start service*************")
+
+	go checkOldTests(cfg, db)
 
 	ts := []tester{&itestAPI{}, &netSenseAPI{}, &assureAPI{}}
 	for i := range ts {
@@ -50,6 +52,8 @@ func runService(cfg *Config, db *gorm.DB) {
 		// if cfg.Application.PrepareRequest {
 		// 	go ts[i].prepareRequests(db, cfg.Application.IntervalPrepareTests)
 		// }
+
+		go runSync(db, ts[i], cfg.Application.IntervalCheckSyncro)
 		go checkTestStatus(db, ts[i], cfg.Application.IntervalCheckTests)
 
 	}
@@ -163,7 +167,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 //Function that works at a specified interval and removes old tests
 func checkOldTests(cfg *Config, db *gorm.DB) {
 	for {
-		log.Debug("Start function delete old test info")
+		log.Info("Start function delete old test info")
 		query := fmt.Sprintf(`DELETE FROM %s"CallingSys_TestResults" AS t1 
 		USING %[1]s"CallingSys_Settings" AS t2 
 		WHERE t1."TestSystem"=t2."SystemID" 
@@ -171,7 +175,7 @@ func checkOldTests(cfg *Config, db *gorm.DB) {
 		if err := db.Exec(query).Error; err != nil {
 			log.Errorf(2, "Error delete old test info|%v", err)
 		}
-		log.Debugf("Next delete old tests info after %d hours", cfg.Application.IntervalDeleteTests)
+		log.Infof("Next delete old tests info after %d hours", cfg.Application.IntervalDeleteTests)
 
 		// For the sake of variety, I decided to try using a timer rather than the Sleep function
 		timer := time.NewTimer(time.Duration(cfg.Application.IntervalDeleteTests) * time.Hour)

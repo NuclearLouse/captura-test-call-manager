@@ -29,7 +29,7 @@ import (
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/net/html/charset"
-	log "redits.oculeus.com/asorokin/my_packages/logging"
+	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
 )
 
 // var message = fmt.Sprintf

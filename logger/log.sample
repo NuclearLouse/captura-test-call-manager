@@ -1,0 +1,10 @@
+17:39:23|00000|**DEBUG**  |No tests found for Assure
+17:39:38|00000|**DEBUG**  |No tests found for Netsense
+17:39:38|00000|**DEBUG**  |No tests found for iTest
+
+08:28:40|30322|**STATUS** |Initiated new test Voice for system Assure and test_id:68905
+
+09:17:38|03315|**ERROR**  |Could not start a new test for system Assure:parse https://h-54-246-182-248.csg-assure.com/api/TestBatchRunner?TestTypeName=&RouteID=140&PhoneNumber=+966591896049
+: net/url: invalid control character in URL
+
+17:41:20|00000|**WARNING**|Exit the program. Got signal interrupt

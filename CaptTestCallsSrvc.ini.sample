@@ -1,10 +1,11 @@
 [application]
 ffmpeg           = c:\Users\ffmpeg-20190928\bin\ffmpeg.exe
 delete_old_tests = 12 #hours
-check_tests      = 5  #seconds
+check_tests      = 15 #seconds
+check_syncro     = 15 #seconds
 
 [logger]
-log_path   = # ONLY slash for path separator!
+log_path   = # absolute path to logfile and use ONLY slash for path separator!
 log_level  = info
 rotate     = daily
 
@@ -18,5 +19,5 @@ user          = pg_user
 password      = my_password
 ssl_mode      = false
 create_tables = false
-sqlite_path   = #absolute path to sqlite .db
+sqlite_path   = # absolute path to sqlite .db
 crypt_pass    =

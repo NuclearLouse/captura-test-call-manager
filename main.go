@@ -19,8 +19,8 @@ import (
 	"strings"
 	"syscall"
 
-	"redits.oculeus.com/asorokin/my_packages/crypter"
-	log "redits.oculeus.com/asorokin/my_packages/logging"
+	"redits.oculeus.com/asorokin/CaptTestCallsSrvc/crypter"
+	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
 )
 
 const (
@@ -101,8 +101,6 @@ func main() {
 	}
 
 	go runService(cfg, db)
-
-	go checkOldTests(cfg, db)
 
 	waitForSignal()
 }

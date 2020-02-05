@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-ini/ini"
-	"redits.oculeus.com/asorokin/my_packages/crypter"
+	"redits.oculeus.com/asorokin/CaptTestCallsSrvc/crypter"
 )
 
 type Config struct {
@@ -19,6 +19,7 @@ type Application struct {
 	Ffmpeg              string `ini:"ffmpeg"`
 	IntervalDeleteTests int64  `ini:"delete_old_tests"`
 	IntervalCheckTests  int64  `ini:"check_tests"`
+	IntervalCheckSyncro int64  `ini:"check_syncro"`
 	// IntervalPrepareTests int64  `ini:"prepare_tests"`
 }
 

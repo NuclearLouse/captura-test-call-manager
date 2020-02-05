@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
-	log "redits.oculeus.com/asorokin/my_packages/logging"
+	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
 )
 
 func (api *itestAPI) sysName(db *gorm.DB) string {
