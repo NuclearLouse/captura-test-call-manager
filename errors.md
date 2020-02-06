@@ -32,8 +32,8 @@
 * 00510 - Cann't concatenate beep and answer MP3 files for call_id
 ---
 **Assure system errors, file: tcm_assure.go**
-* 00600 - Failed to get a response to the request _requestName
-* 00601 - Could not insert data from response _requestName
+* 00600 - 
+* 00601 - 
 * 00602 - Cann't obtain rows for DataLoaded=false
 * 00603 - Cann't update data row about empty request for call_id
 * 00604 - Error for check present audio file for system _sysname and call_id 

@@ -485,3 +485,16 @@ func calcCoordinate(callID string) (float64, int, error) {
 	}
 	return float64(duration[0]), 500 * duration[0] / (duration[0] + duration[1]), nil
 }
+
+func callSyncRoutesFunction(db *gorm.DB, sysID int) error {
+	query := fmt.Sprintf("SELECT %sf_callingsys_sync_trunks_upd(%d)", schemaPG, sysID)
+	var result struct {
+		Duration interface{} `gorm:"column:f_callingsys_sync_trunks_upd"`
+	}
+	err := db.Raw(query).Scan(&result).Error
+	if err != nil {
+		return err
+	}
+	log.Debugf("Call 'function f_callingsys_sync_trunks_upd' result %v", result)
+	return nil
+}

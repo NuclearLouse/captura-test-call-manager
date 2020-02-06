@@ -1,22 +1,5 @@
 package main
 
-import "time"
-
-func (syncAutomation) TableName() string {
-	return schemaPG + "CallingSys_sync_automation"
-}
-
-type syncAutomation struct {
-	Systemid            int
-	Synctype            string
-	DoSynch             bool
-	UpdateCaptRelations bool
-	Syncstate           int
-	SyncStart           time.Time
-	SyncEnd             time.Time
-	Comment             string
-}
-
 //-----------------------------------------------------------------------------
 //*******************Block of Assure syncro structures*******************
 //-----------------------------------------------------------------------------
@@ -29,21 +12,21 @@ func (assureDestination) TableName() string {
 }
 
 type assureDestination struct {
-	CountryID                 int    `json:"CountryID" gorm:"type:int"`
-	CountryName               string `json:"CountryName" gorm:"size:100"`
-	Created                   string `json:"Created" gorm:"size:100"`
-	CreatedBy                 int    `json:"CreatedBy" gorm:"type:int"`
-	DestinationCategoryID     int    `json:"DestinationCategoryID" gorm:"type:int"`
-	DestinationCategoryName   string `json:"DestinationCategoryName" gorm:"size:100"`
-	DestinationExtID          string `json:"DestinationExtID" gorm:"size:100"`
-	DestinationID             int    `json:"DestinationID" gorm:"type:int"`
-	DestinationImportanceID   int    `json:"DestinationImportanceID"`
-	DestinationImportanceName string `json:"DestinationImportanceName" gorm:"size:100"`
-	Modified                  string `json:"Modified" gorm:"size:100"`
-	ModifiedBy                int    `json:"ModifiedBy" gorm:"type:int"`
-	Name                      string `json:"Name" gorm:"size:100"`
-	PoPID                     int    `json:"PoPID" gorm:"type:int"`
-	ShortName                 string `json:"ShortName" gorm:"size:100"`
+	CountryID                 int         `json:"CountryID" gorm:"type:int"`
+	CountryName               string      `json:"CountryName" gorm:"type:varchar(100)"`
+	Created                   string      `json:"Created" gorm:"type:varchar(100)"`
+	CreatedBy                 int         `json:"CreatedBy" gorm:"type:int"`
+	DestinationCategoryID     int         `json:"DestinationCategoryID" gorm:"type:int"`
+	DestinationCategoryName   string      `json:"DestinationCategoryName" gorm:"type:varchar(100)"`
+	DestinationExtID          interface{} `json:"DestinationExtID" gorm:"type:varchar(100)"`
+	DestinationID             int         `json:"DestinationID" gorm:"type:int"`
+	DestinationImportanceID   int         `json:"DestinationImportanceID"`
+	DestinationImportanceName string      `json:"DestinationImportanceName" gorm:"type:varchar(100)"`
+	Modified                  string      `json:"Modified" gorm:"type:varchar(100)"`
+	ModifiedBy                int         `json:"ModifiedBy" gorm:"type:int"`
+	Name                      string      `json:"Name" gorm:"type:varchar(100)"`
+	PoPID                     int         `json:"PoPID" gorm:"type:int"`
+	ShortName                 string      `json:"ShortName" gorm:"type:varchar(100)"`
 }
 
 type routes struct {
@@ -56,31 +39,31 @@ func (assureRoute) TableName() string {
 
 type assureRoute struct {
 	Active                 bool        `json:"Active" gorm:"type:boolean"`
-	CallParameter          interface{} `json:"CallParameter" gorm:"size:100"`
-	Carrier                string      `json:"Carrier" gorm:"size:100"`
-	CarrierID              interface{} `json:"CarrierID" gorm:"size:100"`
+	CallParameter          interface{} `json:"CallParameter" gorm:"type:varchar(100)"`
+	Carrier                string      `json:"Carrier" gorm:"type:varchar(100)"`
+	CarrierID              interface{} `json:"CarrierID" gorm:"type:varchar(100)"`
 	Channel                int         `json:"Channel" gorm:"type:int"`
 	ChannelPoolID          int         `json:"ChannelPoolID" gorm:"type:int"`
-	ChannelPoolName        string      `json:"ChannelPoolName" gorm:"size:100"`
-	Created                string      `json:"Created" gorm:"size:100"`
+	ChannelPoolName        string      `json:"ChannelPoolName" gorm:"type:varchar(100)"`
+	Created                string      `json:"Created" gorm:"type:varchar(100)"`
 	CreatedBy              int         `json:"CreatedBy" gorm:"type:int"`
-	Description            interface{} `json:"Description" gorm:"size:100"`
-	DialerName             string      `json:"DialerName" gorm:"size:100"`
-	ExtRouteID             interface{} `json:"ExtRouteID" gorm:"size:100"`
-	IsMainProduct          interface{} `json:"IsMainProduct" gorm:"size:100"`
-	Modified               string      `json:"Modified" gorm:"size:100"`
+	Description            interface{} `json:"Description" gorm:"type:varchar(100)"`
+	DialerName             string      `json:"DialerName" gorm:"type:varchar(100)"`
+	ExtRouteID             interface{} `json:"ExtRouteID" gorm:"type:varchar(100)"`
+	IsMainProduct          interface{} `json:"IsMainProduct" gorm:"type:varchar(100)"`
+	Modified               string      `json:"Modified" gorm:"type:varchar(100)"`
 	ModifiedBy             int         `json:"ModifiedBy" gorm:"type:int"`
-	Name                   string      `json:"Name" gorm:"size:100"`
-	NumberManipulationRule interface{} `json:"NumberManipulationRule" gorm:"size:100"`
+	Name                   string      `json:"Name" gorm:"type:varchar(100)"`
+	NumberManipulationRule interface{} `json:"NumberManipulationRule" gorm:"type:varchar(100)"`
 	PoPID                  int         `json:"PoPID" gorm:"type:int"`
-	Prefix                 string      `json:"Prefix" gorm:"size:100"`
-	RouteClass             string      `json:"RouteClass" gorm:"size:100"`
+	Prefix                 string      `json:"Prefix" gorm:"type:varchar(100)"`
+	RouteClass             string      `json:"RouteClass" gorm:"type:varchar(100)"`
 	RouteID                int         `json:"RouteID" gorm:"type:int"`
 	RouteImportanceID      int         `json:"RouteImportanceID" gorm:"type:int"`
-	RouteImportanceName    string      `json:"RouteImportanceName" gorm:"size:100"`
-	RouteTypeID            interface{} `json:"RouteTypeID" gorm:"size:100"`
-	RouteTypeName          interface{} `json:"RouteTypeName" gorm:"size:100"`
-	ShortName              string      `json:"ShortName" gorm:"size:100"`
+	RouteImportanceName    string      `json:"RouteImportanceName" gorm:"type:varchar(100)"`
+	RouteTypeID            interface{} `json:"RouteTypeID" gorm:"type:varchar(100)"`
+	RouteTypeName          interface{} `json:"RouteTypeName" gorm:"type:varchar(100)"`
+	ShortName              string      `json:"ShortName" gorm:"type:varchar(100)"`
 	SwitchID               int         `json:"SwitchID" gorm:"type:int"`
-	SwitchName             string      `json:"SwitchName" gorm:"size:100"`
+	SwitchName             string      `json:"SwitchName" gorm:"type:varchar(100)"`
 }

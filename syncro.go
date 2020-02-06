@@ -7,11 +7,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/jinzhu/gorm"
-	"github.com/mitchellh/mapstructure"
 	gormbulk "github.com/t-tiger/gorm-bulk-insert"
 	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
 )
@@ -19,9 +19,9 @@ import (
 func checkNewSync(db *gorm.DB, api tester, interval int64) {
 	sysID := api.sysID(db)
 	sysName := api.sysName(db)
-	log.Info("Start function syncronization for test system", sysName)
-	var sync syncAutomation
+	log.Info("Start service syncronization for test system", sysName)
 	for {
+		var sync syncAutomation
 		err := db.Model(&sync).Where("systemid=? AND do_synch=true", sysID).
 			Updates(syncAutomation{
 				Syncstate: 1,
@@ -30,15 +30,21 @@ func checkNewSync(db *gorm.DB, api tester, interval int64) {
 		switch {
 		case err != nil:
 			if err.Error() == "record not found" {
-				log.Debug("Не было команды синхронизации для", sysName)
+				log.Debug("Not command sinchronization for ", sysName)
 			}
 			time.Sleep(time.Duration(interval) * time.Second)
 			continue
 		}
 		log.Infof("Run sinchronization %s for test system %s", sync.Synctype, sysName)
 		if err := api.runSyncro(db, sync); err != nil {
-			log.Error(999, "Ошибка синхронизации", err)
-			// ! Изменение статуса и коммента
+			log.Error(999, "Error syncronization", err)
+			message := fmt.Sprintf("Syncronization ERROR:%v", err)
+			db.Model(&sync).Where("systemid=? AND do_synch=true", sysID).
+				Updates(map[string]interface{}{
+					"syncstate": 3,
+					"do_synch":  false,
+					"sync_end":  time.Now(),
+					"comment":   message})
 			time.Sleep(time.Duration(interval) * time.Second)
 			continue
 		}
@@ -55,85 +61,52 @@ func checkNewSync(db *gorm.DB, api tester, interval int64) {
 
 }
 
+//-----------------------------------------------------------------------------
+//*******************Block of Assure syncro functions*******************
+//-----------------------------------------------------------------------------
 func (api assureAPI) runSyncro(db *gorm.DB, s syncAutomation) error {
 
 	switch s.Synctype {
-	case "assure_routes_sync":
-		if err := api.getSyncroRoutes(db); err != nil {
+	case "assure_routes":
+		if err := api.getAssureSynchro(db, api.Routes); err != nil {
 			return err
 		}
-	case "assure_destinations_sync":
-		if err := api.getSyncroDestinations(db); err != nil {
+		if err := callSyncRoutesFunction(db, api.SystemID); err != nil {
+			return err
+		}
+	case "assure_destinations":
+		if err := api.getAssureSynchro(db, api.Destinations); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (api netSenseAPI) runSyncro(db *gorm.DB, s syncAutomation) error {
-	log.Info("Start sinchronization for test system", api.SystemName)
-	return nil
-}
-
-func (api itestAPI) runSyncro(db *gorm.DB, s syncAutomation) error {
-	log.Info("Start sinchronization for test system", api.SystemName)
-	return nil
-}
-
-func (api assureAPI) getSyncroRoutes(db *gorm.DB) error {
-	log.Debug("Downloading data for updating routes for system", api.SystemName)
+func (api assureAPI) getAssureSynchro(db *gorm.DB, r string) error {
+	log.Infof("Start downloading data for updating %s for system %s", r, api.SystemName)
 	// log.Debug("API Settings", api)
 	var err error
-	request := "assure_routes"
-	res, err := api.requestGET(api.QueryResults + api.Routes)
-	// log.Debug("Prepare response", res)
+	res, err := api.requestGET(api.QueryResults + r)
 	if err != nil {
-		// log.Errorf(600, "Failed to get a response to the request %s|%v", request, err)
 		return err
 	}
-	log.Debug("Successful response to the request", request)
+	log.Debug("Successful response to the request", r)
+	//! ***************For DEBUG save response json*********************
+	// body, _ := ioutil.ReadAll(res.Body)
+	// nameFile := fmt.Sprintf("c:\\capturasystem\\TestCallsManagement_Log\\%s.json", r)
+	// ioutil.WriteFile(nameFile, body, 0666)
+	//! ****************************************************************
 	start := time.Now()
-	log.Debug("Start transaction insert into the table", request)
-	if err := insertAssureData(db, request, res.Body); err != nil {
-		// log.Errorf(601, "Could not insert data from response %s|%v", request, err)
+	log.Infof("Start transaction insert into the table CallingSys_assure_%s", r)
+	if err := insertAssureData(db, r, res.Body); err != nil {
 		return err
 	}
 	res.Body.Close()
-	log.Debug("Successfully insert data from response", request)
-	log.Debugf("Elapsed time transaction insert %s %v", request, time.Since(start))
-
-	// log.Infof("The next data update to prepare %s after %d hours", api.SystemName, interval)
+	log.Infof("Successfully insert data. Elapsed time transaction %s %v", r, time.Since(start))
 	return nil
 }
 
-func (api assureAPI) getSyncroDestinations(db *gorm.DB) error {
-	log.Debug("Downloading data for updating destinations for system", api.SystemName)
-	// log.Debug("API Settings", api)
-
-	request := "assure_destinations"
-	var err error
-	res, err := api.requestGET(api.QueryResults + api.Destinations)
-	// log.Debug("Prepare response", res)
-	if err != nil {
-		// log.Errorf(600, "Failed to get a response to the request %s|%v", request, err)
-		return err
-	}
-	log.Debug("Successful response to the request", request)
-	start := time.Now()
-	log.Debug("Start transaction insert into the table", request)
-	if err := insertAssureData(db, request, res.Body); err != nil {
-		// log.Errorf(601, "Could not insert data from response %s|%v", request, err)
-		return err
-	}
-	res.Body.Close()
-	log.Debug("Successfully insert data from response", request)
-	log.Debugf("Elapsed time transaction insert %s %v", request, time.Since(start))
-
-	// log.Infof("The next data update to prepare %s after %d hours", api.SystemName, interval)
-	return nil
-}
-
-func insertAssureData(db *gorm.DB, req string, body io.ReadCloser) error {
+func insertAssureData(db *gorm.DB, r string, body io.ReadCloser) error {
 	tx := db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -145,52 +118,45 @@ func insertAssureData(db *gorm.DB, req string, body io.ReadCloser) error {
 	}
 
 	var bulkslice []interface{}
-	switch req {
-	case "assure_routes":
-		var route assureRoute // table's struct
-		var routes routes     // JSON's struct
+	switch r {
+	case "Routes":
+		var rs routes
 		if err := db.Delete(assureRoute{}).Error; err != nil {
 			return err
 		}
-		log.Debug("Successeful truncate table", route.TableName())
+		log.Debug("Successeful truncate table CallingSys_assure_routes")
 
-		if err := json.NewDecoder(body).Decode(&routes); err != nil {
+		if err := json.NewDecoder(body).Decode(&rs); err != nil {
 			return err
 		}
-		for _, assureRoute := range routes.QueryResult1 {
-			if err := mapstructure.Decode(assureRoute, &route); err != nil {
-				return err
-			}
+		for _, ar := range rs.QueryResult1 {
 			if dialectDB == "sqlite3" {
-				if err := tx.Create(&route).Error; err != nil {
+				if err := tx.Create(&ar).Error; err != nil {
 					tx.Rollback()
 					return err
 				}
 			}
-			bulkslice = append(bulkslice, route)
+			bulkslice = append(bulkslice, ar)
 		}
-	case "assure_destinations":
-		var dest assureDestination
-		var dests destinations
+	case "Destinations":
+		var ds destinations
 		if err := db.Delete(assureDestination{}).Error; err != nil {
 			return err
 		}
-		log.Debug("Successeful truncate table", dest.TableName())
+		log.Debug("Successeful truncate table CallingSys_assure_destinations")
 
-		if err := json.NewDecoder(body).Decode(&dests); err != nil {
+		if err := json.NewDecoder(body).Decode(&ds); err != nil {
 			return err
 		}
-		for _, assureDest := range dests.QueryResult1 {
-			if err := mapstructure.Decode(assureDest, &dests); err != nil {
-				return err
-			}
+		for _, ad := range ds.QueryResult1 {
 			if dialectDB == "sqlite3" {
-				if err := tx.Create(&dest).Error; err != nil {
+				if err := tx.Create(&ad).Error; err != nil {
 					tx.Rollback()
 					return err
 				}
 			}
-			bulkslice = append(bulkslice, dest)
+			bulkslice = append(bulkslice, ad)
+
 		}
 	}
 	switch dialectDB {
@@ -204,5 +170,22 @@ func insertAssureData(db *gorm.DB, req string, body io.ReadCloser) error {
 			return err
 		}
 	}
+
+	return nil
+}
+
+//-----------------------------------------------------------------------------
+//*******************Block of NetSense syncro functions*******************
+//-----------------------------------------------------------------------------
+func (api netSenseAPI) runSyncro(db *gorm.DB, s syncAutomation) error {
+	log.Info("Start sinchronization for test system", api.SystemName)
+	return nil
+}
+
+//-----------------------------------------------------------------------------
+//*******************Block of iTest syncro functions*******************
+//-----------------------------------------------------------------------------
+func (api itestAPI) runSyncro(db *gorm.DB, s syncAutomation) error {
+	log.Info("Start sinchronization for test system", api.SystemName)
 	return nil
 }

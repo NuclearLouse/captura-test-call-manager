@@ -127,3 +127,18 @@ type foundTest struct {
 	TestType               string
 	TestComment            string
 }
+
+func (syncAutomation) TableName() string {
+	return schemaPG + "CallingSys_sync_automation"
+}
+
+type syncAutomation struct {
+	Systemid            int
+	Synctype            string
+	DoSynch             bool
+	UpdateCaptRelations bool
+	Syncstate           int
+	SyncStart           time.Time
+	SyncEnd             time.Time
+	Comment             string
+}
