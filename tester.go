@@ -114,7 +114,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 				&test.TestType)      //TestSystemCallType from Purch_Statuses
 			if err != nil {
 				log.Errorf(10, "Could not add individual tests to the list of tests found for system %s|%v", sysName, err)
-				newTestInfo := PurchOppt{
+				newTestInfo := purchOppt{
 					TestingSystemRequestID: "-1",
 					TestedUntil:            time.Now(),
 					TestComment:            err.Error()}
@@ -137,7 +137,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 				log.Infof("Initiated new test %s for system %s", t.TestType, t.SystemName)
 				if err := api.runNewTest(db, t); err != nil {
 					log.Errorf(7, "Could not start a new test for system %s|%v", t.SystemName, err)
-					newTestInfo := PurchOppt{
+					newTestInfo := purchOppt{
 						TestingSystemRequestID: "-1",
 						TestedUntil:            time.Now(),
 						TestComment:            err.Error()}
@@ -150,7 +150,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 				log.Infof("Checking the end of test %s for system %s and test_id:%s", t.TestType, t.SystemName, t.TestingSystemRequestID)
 				if err := api.checkTestComplete(db, t); err != nil {
 					log.Errorf(8, "Could not check status for test %s system %s|%v", t.TestingSystemRequestID, t.SystemName, err)
-					newTestInfo := PurchOppt{
+					newTestInfo := purchOppt{
 						TestingSystemRequestID: "0",
 						TestedUntil:            time.Now(),
 						TestComment:            err.Error()}

@@ -1,9 +1,9 @@
-**Common errors, files: main.go, tester.go, tools.go**
+**Common errors, files: main.go, tester.go, tools.go, synchro.go**
 * 00001 - Cann't insert data on Purch_Oppt
 * 00002 - Error delete old test info
 * 00003 - Cann't update API settings for the system _sysname
 * 00004 - Cann't delete file
-* 00005 - reserve
+* 00005 - Error syncronization
 * 00006 - Could not select tests to check status for system _sysname
 * 00007 - Could not start a new test _testid for system _sysname
 * 00008 - Could not check status for test _testid system _sysname

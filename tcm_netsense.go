@@ -149,7 +149,7 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 
 	switch newTests.CallListResponseArray.Status.Code {
 	case "200":
-		testinfo := PurchOppt{
+		testinfo := purchOppt{
 			TestingSystemRequestID: newTests.CallListResponseArray.ResponseID,
 			RequestState:           2}
 		if err := testinfo.updateTestInfo(db, nit.RequestID); err != nil {
@@ -186,7 +186,7 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	}
 	res.Body.Close()
 
-	var statistic PurchOppt
+	var statistic purchOppt
 	switch ts.CallListResponseArray.CallLogResponses.Status {
 	case "RUNNING":
 		log.Debug("Wait. The test status is RUNNING for test_ID:", testid)
@@ -250,7 +250,7 @@ func (api netSenseAPI) insertCallsInfo(db *gorm.DB, tr testResultNetsense, lt fo
 		res := tr.Result.List[i].CallResult
 		resCLI := tr.Result.List[i].CallResultCLI
 		resFAS := tr.Result.List[i].CallResultFAS
-		callinfo := CallingSysTestResults{
+		callinfo := callingSysTestResults{
 			AudioURL:                 res.AudioURL.Value,
 			CallID:                   res.CallResultID.Value,
 			CallListID:               lt.TestingSystemRequestID,
@@ -309,7 +309,7 @@ func (api netSenseAPI) downloadAudioFiles(db *gorm.DB, tr testResultNetsense) {
 		}
 		log.Info("Created image PNG file for call_id", callID)
 
-		callsinfo := CallingSysTestResults{
+		callsinfo := callingSysTestResults{
 			DataLoaded: true,
 			AudioFile:  cWav,
 			AudioGraph: cImg,

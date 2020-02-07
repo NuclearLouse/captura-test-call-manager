@@ -8,11 +8,11 @@ import (
 	"time"
 )
 
-func (CallingSysSettings) TableName() string {
+func (callingSysSettings) TableName() string {
 	return schemaPG + "CallingSys_Settings"
 }
 
-type CallingSysSettings struct {
+type callingSysSettings struct {
 	SystemID    int    `gorm:"column:SystemID;AUTO_INCREMENT"`
 	SystemName  string `gorm:"column:SystemName;size:50"`
 	Enabled     bool   `gorm:"column:Enabled;default:false"`
@@ -25,11 +25,11 @@ type CallingSysSettings struct {
 	SSL         string `gorm:"column:SSL;size:10;default:'1_2'"`
 }
 
-func (CallingSysTestResults) TableName() string {
+func (callingSysTestResults) TableName() string {
 	return schemaPG + "CallingSys_TestResults"
 }
 
-type CallingSysTestResults struct {
+type callingSysTestResults struct {
 	CallID                     string    `gorm:"column:CallID;size:30"`
 	CallListID                 string    `gorm:"column:CallListID;size:30"`
 	TestSystem                 int       `gorm:"column:TestSystem;type:int;default:0"`
@@ -66,22 +66,11 @@ type CallingSysTestResults struct {
 	VoiceQualitySpeechLevel    int       `gorm:"column:voiceQualitySpeechLevel;type:int"`
 }
 
-func (PurchStatuses) TableName() string {
-	return schemaPG + "Purch_Statuses"
-}
-
-type PurchStatuses struct {
-	StatusID           int    `gorm:"column:StatusID;type:int;foreignkey:PurchOppt.TestType"`
-	StatusName         string `gorm:"column:StatusName;size:30"`
-	TestSystem         int    `gorm:"column:TestSystem;type:int"`
-	TestSystemCallType string `gorm:"column:TestSystemCallType;size:20"`
-}
-
-func (PurchOppt) TableName() string {
+func (purchOppt) TableName() string {
 	return schemaPG + "Purch_Oppt"
 }
 
-type PurchOppt struct {
+type purchOppt struct {
 	RequestID              int       `gorm:"column:RequestID;type:int"`
 	RequestState           int       `gorm:"column:RequestState;type:int"`
 	DestinationID          int       `gorm:"column:DestinationID;type:int"`

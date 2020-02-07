@@ -22,10 +22,11 @@ func checkNewSync(db *gorm.DB, api tester, interval int64) {
 	log.Info("Start service syncronization for test system", sysName)
 	for {
 		var sync syncAutomation
+		start := time.Now()
 		err := db.Model(&sync).Where("systemid=? AND do_synch=true", sysID).
 			Updates(syncAutomation{
-				Syncstate: 1,
-				SyncStart: time.Now(),
+				Syncstate: 2,
+				SyncStart: start,
 				Comment:   "Start syncronization"}).First(&sync).Error
 		switch {
 		case err != nil:
@@ -37,25 +38,26 @@ func checkNewSync(db *gorm.DB, api tester, interval int64) {
 		}
 		log.Infof("Run sinchronization %s for test system %s", sync.Synctype, sysName)
 		if err := api.runSyncro(db, sync); err != nil {
-			log.Error(999, "Error syncronization", err)
+			log.Error(5, "Error syncronization", err)
 			message := fmt.Sprintf("Syncronization ERROR:%v", err)
 			db.Model(&sync).Where("systemid=? AND do_synch=true", sysID).
 				Updates(map[string]interface{}{
-					"syncstate": 3,
+					"syncstate": -1,
 					"do_synch":  false,
 					"sync_end":  time.Now(),
 					"comment":   message})
 			time.Sleep(time.Duration(interval) * time.Second)
 			continue
 		}
-
+		end := time.Since(start)
+		message := fmt.Sprintf("Syncronization %s complete. Elapsed time %v", sync.Synctype, end)
 		db.Model(&sync).Where("systemid=? AND do_synch=true", sysID).
 			Updates(map[string]interface{}{
 				"syncstate": 3,
 				"do_synch":  false,
 				"sync_end":  time.Now(),
-				"comment":   "Syncronization complete"})
-		log.Infof("Sinchronization %s complete for test system %s", sync.Synctype, sysName)
+				"comment":   message})
+		log.Infof("Sinchronization %s complete for test system %s. Elapsed time %v", sync.Synctype, sysName, end)
 		time.Sleep(time.Duration(interval) * time.Second)
 	}
 
@@ -78,6 +80,9 @@ func (api assureAPI) runSyncro(db *gorm.DB, s syncAutomation) error {
 		if err := api.getAssureSynchro(db, api.Destinations); err != nil {
 			return err
 		}
+		if err := callSyncDestsFunction(db, api.SystemID); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -91,18 +96,13 @@ func (api assureAPI) getAssureSynchro(db *gorm.DB, r string) error {
 		return err
 	}
 	log.Debug("Successful response to the request", r)
-	//! ***************For DEBUG save response json*********************
-	// body, _ := ioutil.ReadAll(res.Body)
-	// nameFile := fmt.Sprintf("c:\\capturasystem\\TestCallsManagement_Log\\%s.json", r)
-	// ioutil.WriteFile(nameFile, body, 0666)
-	//! ****************************************************************
 	start := time.Now()
-	log.Infof("Start transaction insert into the table CallingSys_assure_%s", r)
+	log.Debugf("Start transaction insert into the table CallingSys_assure_%s", r)
 	if err := insertAssureData(db, r, res.Body); err != nil {
 		return err
 	}
 	res.Body.Close()
-	log.Infof("Successfully insert data. Elapsed time transaction %s %v", r, time.Since(start))
+	log.Debugf("Successfully insert data. Elapsed time transaction %s %v", r, time.Since(start))
 	return nil
 }
 

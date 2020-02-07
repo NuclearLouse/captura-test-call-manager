@@ -89,7 +89,7 @@ func (api itestAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	}
 	res.Body.Close()
 
-	testinfo := PurchOppt{
+	testinfo := purchOppt{
 		TestingSystemRequestID: ti.Test.TestID,
 		TestComment:            ti.Test.ShareURL,
 		RequestState:           2}
@@ -244,7 +244,7 @@ func (api itestAPI) downloadAudioFiles(db *gorm.DB, tr testResultItest) {
 		}
 		log.Info("Created image PNG file for call_id", call.ID)
 
-		callsinfo := CallingSysTestResults{
+		callsinfo := callingSysTestResults{
 			DataLoaded:  true,
 			AudioFile:   cWav,
 			AudioGraph:  cImg,
@@ -286,7 +286,7 @@ func (itestAPI) insertCallsInfo(db *gorm.DB, tr testResultItest, ti foundTest) e
 				ringDuration = -1
 			}
 		}
-		callinfo := CallingSysTestResults{
+		callinfo := callingSysTestResults{
 			AudioURL:                 ti.TestComment,
 			CallID:                   call.ID,
 			CallListID:               tr.TestOverview.TestID,

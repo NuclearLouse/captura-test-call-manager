@@ -222,8 +222,8 @@ func decodeToWAV(nameFile, codec string) ([]byte, error) {
 }
 
 // Function checks if the test system is active.
-func isEnabled(db *gorm.DB, name string) (CallingSysSettings, error) {
-	var sys CallingSysSettings
+func isEnabled(db *gorm.DB, name string) (callingSysSettings, error) {
+	var sys callingSysSettings
 	if err := db.Where(`"Enabled"='true' AND "SystemName"=?`, name).Find(&sys).Error; err != nil {
 		return sys, err
 	}
@@ -231,12 +231,12 @@ func isEnabled(db *gorm.DB, name string) (CallingSysSettings, error) {
 }
 
 // Function updating the address, username and password for the test system
-func updateAPI(db *gorm.DB, model interface{}, sys CallingSysSettings) *gorm.DB {
+func updateAPI(db *gorm.DB, model interface{}, sys callingSysSettings) *gorm.DB {
 	return db.Model(model).Updates(map[string]interface{}{"url": sys.Address, "user": sys.AuthName, "pass": sys.AuthKey}).Take(model)
 }
 
 // The function adds a row to the CallingSys_TestResults table for the given call_id
-func (i CallingSysTestResults) updateCallsInfo(db *gorm.DB, callID string) error {
+func (i callingSysTestResults) updateCallsInfo(db *gorm.DB, callID string) error {
 	if err := db.Model(&i).Where(`"CallID"=?`, callID).Updates(i).Error; err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func (i CallingSysTestResults) updateCallsInfo(db *gorm.DB, callID string) error
 // If the test does not provide an audio file, the function will add “empty” information
 func insertEmptyFiles(db *gorm.DB, callID string) error {
 	label := "C&V:test system didn't provide audio files"
-	callsinfo := CallingSysTestResults{
+	callsinfo := callingSysTestResults{
 		DataLoaded:  true,
 		AudioFile:   []byte(label),
 		AudioGraph:  labelEmptyBMP(label),
@@ -285,10 +285,10 @@ func labelEmptyBMP(label string) []byte {
 // find the end time of the last call [MAX("CallComplete")]
 // Counting the number of calls with a duration> 0,
 // and summarize the total duration of these calls
-func callsStatistic(db *gorm.DB, testid string) PurchOppt {
+func callsStatistic(db *gorm.DB, testid string) purchOppt {
 	var total, complete, sumcalls float64
 	var max time.Time
-	var tr CallingSysTestResults
+	var tr callingSysTestResults
 	db.Model(&tr).
 		Where(`"CallListID" = ?`, testid).
 		Select(`MAX("CallComplete")`).
@@ -301,7 +301,7 @@ func callsStatistic(db *gorm.DB, testid string) PurchOppt {
 		Count(&complete).
 		Row().
 		Scan(&sumcalls)
-	stat := PurchOppt{
+	stat := purchOppt{
 		RequestState: 2,
 		TestedUntil:  max,
 		TestASR:      100 * complete / total,
@@ -312,12 +312,12 @@ func callsStatistic(db *gorm.DB, testid string) PurchOppt {
 }
 
 // The function updates the information in the Purch_Oppt table about the running test.
-func (po PurchOppt) updateTestInfo(db *gorm.DB, id int) error {
+func (po purchOppt) updateTestInfo(db *gorm.DB, id int) error {
 	return db.Model(&po).Where(`"RequestID"=?`, id).Update(po).Error
 }
 
 // The function updates the statistic information in the Purch_Oppt table for ended test.
-func (po PurchOppt) updateStatistic(db *gorm.DB, id string) error {
+func (po purchOppt) updateStatistic(db *gorm.DB, id string) error {
 	return db.Model(&po).Where(`"TestingSystemRequestID"=?`, id).Update(po).Error
 }
 
@@ -488,13 +488,13 @@ func calcCoordinate(callID string) (float64, int, error) {
 
 func callSyncRoutesFunction(db *gorm.DB, sysID int) error {
 	query := fmt.Sprintf("SELECT %sf_callingsys_sync_trunks_upd(%d)", schemaPG, sysID)
-	var result struct {
-		Duration interface{} `gorm:"column:f_callingsys_sync_trunks_upd"`
-	}
-	err := db.Raw(query).Scan(&result).Error
-	if err != nil {
-		return err
-	}
-	log.Debugf("Call 'function f_callingsys_sync_trunks_upd' result %v", result)
-	return nil
+	return db.Raw(query).Error
+}
+
+func callSyncDestsFunction(db *gorm.DB, sysID int) error {
+	query := `SELECT "Destinationid" destid, "Destination" dest, "Dialcode" code
+    FROM mtcarrierdbret."Dest_Prot" 
+    WHERE current_date >= "Validfrom" AND current_date < "Validuntil"
+    ORDER BY "Destination", "Dialcode"`
+	return db.Raw(query).Error
 }
