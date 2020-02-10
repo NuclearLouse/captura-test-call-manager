@@ -17,8 +17,9 @@ import (
 	"strings"
 	"time"
 
+	log "redits.oculeus.com/asorokin/my_packages/logging"
+
 	"github.com/jinzhu/gorm"
-	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
 )
 
 func (api *netSenseAPI) sysName(db *gorm.DB) string {
@@ -294,30 +295,49 @@ func (api netSenseAPI) downloadAudioFiles(db *gorm.DB, tr testResultNetsense) {
 		log.Infof("Download AudioURL:%s for call_id:%s", audioURL, callID)
 		request := fmt.Sprintf("%s/%s/%s", api.AudioFile, api.AuthKey, audioURL)
 		cWav, err := api.saveWavFile(request, callID)
-		if err != nil {
+		if err != nil || len(cWav) == 0 {
 			log.Errorf(402, "Cann't download the audio file for call_id:%s|%v", callID, err)
 			continue
 		}
-		log.Info("Succeseffuly download audio file for call_id:", callID)
+		log.Info("Succeseffuly download wav file for call_id:", callID)
+		cMP3, err := decodeAudio(callID, "wav", "mp3", "result")
+		if err != nil || len(cMP3) == 0 {
+			log.Errorf(400, "Cann't decode MP3 file for call_id %s|%v", callID, err)
+		}
+		var x int
+		if l.CallResult.CallType.Value != "TrueCLI" {
+			// TODO: Формулу потом надо пересмотреть
+			x, _ = strconv.Atoi(fmt.Sprintf("%.f", 500*l.CallResult.ConnectTime.Value/(l.CallResult.ConnectTime.Value+l.CallResult.CallDuration.Value)))
+		}
 
-		x, _ := strconv.Atoi(fmt.Sprintf("%.f", 500*l.CallResult.ConnectTime.Value/(l.CallResult.ConnectTime.Value+l.CallResult.CallDuration.Value)))
-		cImg, err := waveFormImage(callID, x)
-		if err != nil || len(cImg) == 0 {
+		pngImg, bmpImpg, err := waveFormImage(callID, x)
+		if err != nil || len(bmpImpg) == 0 || len(pngImg) == 0 {
 			log.Errorf(403, "Cann't create waveform image file for call_id %s|%v", callID, err)
-			cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
+			bmpImpg = labelEmptyBMP("C&V:Cann't create waveform image file")
 			continue
 		}
-		log.Info("Created image PNG file for call_id", callID)
+		log.Info("Created image files for call_id", callID)
 
 		callsinfo := callingSysTestResults{
 			DataLoaded: true,
 			AudioFile:  cWav,
-			AudioGraph: cImg,
+			AudioGraph: bmpImpg,
 		}
 		if err = callsinfo.updateCallsInfo(db, callID); err != nil {
-			log.Errorf(404, "Cann't insert WAV file into table for system Assure call_id %s|%v", callID, err)
+			log.Errorf(404, "Cann't insert WAV file into TestResults table for call_id %s|%v", callID, err)
 			continue
 		}
+
+		webinfo := testFilesWEB{
+			Callid:     callID,
+			Testsystem: api.SystemID,
+			Diagram:    pngImg,
+			Audiofile:  cMP3}
+		if err = webinfo.insertWebInfo(db); err != nil {
+			log.Errorf(405, "Cann't insert audio and image file into testfiles_web table for call_id %s|%v", callID, err)
+			continue
+		}
+
 		log.Info("Insert WAV and IMG file for callid", callID)
 	}
 }

@@ -17,8 +17,9 @@ import (
 	"strings"
 	"time"
 
+	log "redits.oculeus.com/asorokin/my_packages/logging"
+
 	"github.com/jinzhu/gorm"
-	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
 )
 
 func (api *assureAPI) sysName(db *gorm.DB) string {
@@ -254,8 +255,16 @@ func (api assureAPI) downloadAudioFiles(db *gorm.DB, tr testResultAssure) {
 			log.Errorf(607, "Error uncompress GZ file for call_id %s|%v", callID, err)
 			continue
 		}
-		var cWav []byte
-		cWav, err = decodeToWAV(callID, "amr")
+		var cWav, cMP3 []byte
+		cMP3, err = decodeAudio(callID, "amr", "mp3", "source")
+		if err != nil || len(cMP3) == 0 {
+			log.Errorf(608, "Error decode to mp3 file for call_id %s|%v", callID, err)
+			cMP3 = []byte("C&V:Cann't decode to mp3 file")
+			continue
+		}
+		log.Info("Created MP3 file for call_id", callID)
+
+		cWav, err = decodeAudio(callID, "mp3", "wav", "source")
 		if err != nil || len(cWav) == 0 {
 			log.Errorf(608, "Error decode to wav file for call_id %s|%v", callID, err)
 			cWav = []byte("C&V:Cann't decode to wav file")
@@ -263,26 +272,38 @@ func (api assureAPI) downloadAudioFiles(db *gorm.DB, tr testResultAssure) {
 		}
 		log.Info("Created WAV file for call_id", callID)
 
-		x, _ := strconv.Atoi(fmt.Sprintf("%.f", 500*res.BConnectTime/res.BDisconnectTime))
-
-		cImg, err := waveFormImage(callID, x)
-		if err != nil || len(cImg) == 0 {
-			log.Errorf(609, "Cann't create waveform image file for call_id %s|%v", callID, err)
-			cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
+		var x int
+		if res.TestType != "CLI" {
+			// TODO: Формулу потом надо пересмотреть
+			x, _ = strconv.Atoi(fmt.Sprintf("%.f", 500*res.BConnectTime/res.BDisconnectTime))
+		}
+		pngImg, bmpImg, err := waveFormImage(callID, x)
+		if err != nil || len(bmpImg) == 0 || len(pngImg) == 0 {
+			log.Errorf(609, "Cann't create waveform image files for call_id %s|%v", callID, err)
+			bmpImg = labelEmptyBMP("C&V:Cann't create waveform image file")
 			continue
 		}
-		log.Info("Created image PNG file for call_id", callID)
+		log.Info("Created image files for call_id", callID)
 
 		callsinfo := callingSysTestResults{
 			DataLoaded: true,
 			AudioFile:  cWav,
-			AudioGraph: cImg,
-		}
+			AudioGraph: bmpImg}
 		if err = callsinfo.updateCallsInfo(db, callID); err != nil {
-			log.Errorf(610, "Cann't insert WAV file into table for system Assure call_id %s|%v", callID, err)
+			log.Errorf(610, "Cann't insert audio and image file into TestResults table for call_id %s|%v", callID, err)
 			continue
 		}
-		log.Info("Insert WAV and IMG file for callid", callID)
+
+		webinfo := testFilesWEB{
+			Callid:     callID,
+			Testsystem: api.SystemID,
+			Diagram:    pngImg,
+			Audiofile:  cMP3}
+		if err = webinfo.insertWebInfo(db); err != nil {
+			log.Errorf(611, "Cann't insert audio and image file into testfiles_web table for call_id %s|%v", callID, err)
+			continue
+		}
+		log.Info("Insert audio and image file for callid", callID)
 	}
 }
 

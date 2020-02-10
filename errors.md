@@ -11,23 +11,23 @@
 * 00010 - Could not add individual tests to the list of tests found for system _sysname
 ---
 **Netsense system errors, file: tcm_netsense.go**
-* 00400 - reserve
+* 00400 - Cann't decode MP3 file for call_id
 * 00401 - Cann't update data row about empty request for call_id
 * 00402 - Cann't download the audio file for call_id
-* 00403 - Cann't create waveform PNG image file for call_id
-* 00404 - Cann't insert WAV file into table for call_id
-* 00405 - 
+* 00403 - Cann't create waveform image files for call_id
+* 00404 - Cann't insert WAV file into TestResults table for call_id
+* 00405 - Cann't insert audio and image file into testfiles_web table for call_id
 ---
 **iTest system errors, file: tcm_itest.go**
 * 00500 - 
 * 00501 - 
 * 00502 - Error in checkPresentAudioFile function
 * 00503 - Cann't update data row about empty request for call_id
-* 00504 - 
-* 00505 - Cann't decode MP3 file to WAV for call_id
-* 00506 - Cann't create waveform PNG image file for call_id
-* 00507 - Cann't insert WAV file into table for call_id
-* 00508 - 
+* 00504 - Cann't read MP3 file for call_id
+* 00505 - Cann't decode MP3 file to WAV for call_id 
+* 00506 - Cann't create waveform image files for call_id
+* 00507 - Cann't insert audio and image file into TestResults table for call_id
+* 00508 - Cann't insert audio and image file into testfiles_web table for call_id
 * 00509 - Cann't get the coordinate of the beginning of the answer for call_id
 * 00510 - Cann't concatenate beep and answer MP3 files for call_id
 ---
@@ -40,7 +40,7 @@
 * 00605 - Error decode field APartyAudio for call_id %s
 * 00606 - Error create GZ file for call_id
 * 00607 - Error uncompress GZ file for call_id
-* 00608 - Error decode to wav file for call_id
-* 00609 - Cann't create waveform PNG image file for call_id
-* 00610 - Cann't insert WAV file into table for call_id
-* 00611 - 
+* 00608 - Error decode to audio file for call_id
+* 00609 - Cann't create waveform image files for call_id
+* 00610 - Cann't insert audio and image file into TestResults table for call_id
+* 00611 - Cann't insert audio and image file into testfiles_web table for call_id

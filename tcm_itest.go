@@ -12,13 +12,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	log "redits.oculeus.com/asorokin/my_packages/logging"
+
 	"github.com/jinzhu/gorm"
-	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
 )
 
 func (api *itestAPI) sysName(db *gorm.DB) string {
@@ -230,35 +230,52 @@ func (api itestAPI) downloadAudioFiles(db *gorm.DB, tr testResultItest) {
 			}
 			continue
 		}
-		cWav, err := decodeToWAV(nameFile, "mp3")
-		if err != nil {
+		cMP3, err := contentMP3(nameFile)
+		if err != nil || len(cMP3) == 0 {
+			log.Errorf(504, "Cann't read MP3 file for call_id %s|%v", call.ID, err)
+		}
+
+		cWav, err := decodeAudio(nameFile, "mp3", "wav", "source")
+		if err != nil || len(cWav) == 0 {
 			log.Errorf(505, "Cann't decode MP3 file to WAV for call_id %s|%v", call.ID, err)
 			continue
 		}
 		log.Info("Decod mp3 files to WAV for call_id", call.ID)
-		cImg, err := waveFormImage(nameFile, x)
-		if err != nil || len(cImg) == 0 {
-			log.Errorf(506, "Cann't create waveform PNG image file for call_id %s|%v", call.ID, err)
-			cImg = labelEmptyBMP("C&V:Cann't create waveform image file")
+
+		pngImg, bmpImg, err := waveFormImage(nameFile, x)
+		if err != nil || len(bmpImg) == 0 || len(pngImg) == 0 {
+			log.Errorf(506, "Cann't create waveform image files for call_id %s|%v", call.ID, err)
+			bmpImg = labelEmptyBMP("C&V:Cann't create waveform image file")
 			continue
 		}
-		log.Info("Created image PNG file for call_id", call.ID)
+		log.Info("Created image files for call_id", call.ID)
 
 		callsinfo := callingSysTestResults{
 			DataLoaded:  true,
 			AudioFile:   cWav,
-			AudioGraph:  cImg,
+			AudioGraph:  bmpImg,
 			ConnectTime: connectTime,
 		}
 		if err = callsinfo.updateCallsInfo(db, call.ID); err != nil {
-			log.Errorf(507, "Cann't insert WAV file into table for call_id %s|%v", call.ID, err)
+			log.Errorf(507, "Cann't insert audio and image file into TestResults table for call_id %s|%v", call.ID, err)
 			continue
 		}
-		log.Info("Insert WAV and IMG file for callid", call.ID)
 
-		if err := os.Remove(nameFile + ".mp3"); err != nil {
-			log.Error(4, "Cann't delete file", nameFile)
+		webinfo := testFilesWEB{
+			Callid:     call.ID,
+			Testsystem: api.SystemID,
+			Diagram:    pngImg,
+			Audiofile:  cMP3}
+		if err = webinfo.insertWebInfo(db); err != nil {
+			log.Errorf(508, "Cann't insert audio and image file into testfiles_web table for call_id %s|%v", call.ID, err)
+			continue
 		}
+
+		log.Info("Insert audio and image file for callid", call.ID)
+
+		// if err := os.Remove(nameFile + ".mp3"); err != nil {
+		// 	log.Error(4, "Cann't delete file", nameFile)
+		// }
 	}
 	log.Infof("All present files download from %s server and upload into the table TestResults", api.SystemName)
 }

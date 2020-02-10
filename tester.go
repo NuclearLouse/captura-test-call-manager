@@ -12,7 +12,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
-	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
+	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
 type tester interface {

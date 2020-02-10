@@ -11,9 +11,10 @@ import (
 	"io"
 	"time"
 
+	log "redits.oculeus.com/asorokin/my_packages/logging"
+
 	"github.com/jinzhu/gorm"
 	gormbulk "github.com/t-tiger/gorm-bulk-insert"
-	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
 )
 
 func checkNewSync(db *gorm.DB, api tester, interval int64) {

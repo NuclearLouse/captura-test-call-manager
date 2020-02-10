@@ -131,3 +131,15 @@ type syncAutomation struct {
 	SyncEnd             time.Time
 	Comment             string
 }
+
+func (testFilesWEB) TableName() string {
+	return schemaPG + "CallingSys_testfiles_web"
+}
+
+type testFilesWEB struct {
+	RecordID   int64
+	Callid     string
+	Testsystem int
+	Diagram    []byte
+	Audiofile  []byte
+}

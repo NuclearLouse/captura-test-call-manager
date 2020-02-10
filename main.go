@@ -1,7 +1,9 @@
 // Test Calls Management Service
-// This service integrates NetSense, iTest, Assure test calls systems into Captura System
-//
 // Home page: https://redits.oculeus.com/asorokin/captura_tcm
+// This service integrates NetSense, iTest, Assure test calls systems into Captura System
+// NetSense: https://arptel.com/index.html
+// iTest: http://www.i-test.net/
+// Assure: https://www.csgi.com/portfolio/csg-wholesale/assure/
 //
 //
 // The file contains the function necessary when you first start the program.
@@ -19,8 +21,8 @@ import (
 	"strings"
 	"syscall"
 
-	"redits.oculeus.com/asorokin/CaptTestCallsSrvc/crypter"
-	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
+	"redits.oculeus.com/asorokin/my_packages/crypter"
+	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
 const (
@@ -31,13 +33,13 @@ const (
 )
 
 var (
-	srvTmpFolder      string
-	schemaPG          string
-	dialectDB         string
-	ffmpegWavFormImg  string
-	ffmpegDuration    string
-	ffmpegConcatMP3   string
-	ffmpegDecodeToWav string
+	srvTmpFolder     string
+	schemaPG         string
+	dialectDB        string
+	ffmpegWavFormImg string
+	ffmpegDuration   string
+	ffmpegConcatMP3  string
+	ffmpegDecode     string
 )
 
 func main() {
@@ -117,7 +119,7 @@ func setGlobalVars(cfg *Config) {
 	}
 
 	ffmpegConcatMP3 = cfg.Application.Ffmpeg + " -i %s -i %s -filter_complex [0:a][1:a]concat=n=2:v=0:a=1 %s"
-	ffmpegDecodeToWav = cfg.Application.Ffmpeg + " -y -i %s %s"
+	ffmpegDecode = cfg.Application.Ffmpeg + " -y -i %s %s"
 
 	schema := cfg.ConnectDB.SchemaPG + "."
 	if schema == "" {

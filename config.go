@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 
+	"redits.oculeus.com/asorokin/my_packages/crypter"
+
 	"github.com/go-ini/ini"
-	"redits.oculeus.com/asorokin/CaptTestCallsSrvc/crypter"
 )
 
 //Config struct

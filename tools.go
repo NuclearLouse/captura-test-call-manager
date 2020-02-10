@@ -29,7 +29,7 @@ import (
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/net/html/charset"
-	log "redits.oculeus.com/asorokin/CaptTestCallsSrvc/logger"
+	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
 // var message = fmt.Sprintf
@@ -101,7 +101,7 @@ func execCommand(com string) ([]byte, error) {
 // A png file will be created, a vertical line will be drawn in it at the given x coordinate,
 // then the png file will be decoded in bmp. The file will be read in a slice of bytes,
 // and all auxiliary files wav, png, bmp will be deleted.
-func waveFormImage(nameFile string, x int) ([]byte, error) {
+func waveFormImage(nameFile string, x int) ([]byte, []byte, error) {
 	pathWavFile := srvTmpFolder + nameFile + ".wav"
 	pathPngFile := srvTmpFolder + nameFile + ".png"
 
@@ -113,31 +113,36 @@ func waveFormImage(nameFile string, x int) ([]byte, error) {
 	com := fmt.Sprintln(fmt.Sprintf(ffmpegWavFormImg, pathWavFile, pathPngFile))
 	_, err := execCommand(com)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// drawing a vertical red line indicating the beginning of the answer
 	if x != 0 {
 		if err := drawVLine(pathPngFile, x); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+	}
+
+	imgPNG, err := ioutil.ReadFile(pathPngFile)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	pathBmpFile := srvTmpFolder + nameFile + ".bmp"
 	if err := encodePNGtoBMP(pathPngFile, pathBmpFile); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	content, err := ioutil.ReadFile(pathBmpFile)
+	imgBMP, err := ioutil.ReadFile(pathBmpFile)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	listDeleteFiles := []string{
 		pathWavFile,
 		pathPngFile,
 		pathBmpFile}
 	deleteFiles(listDeleteFiles)
-	return content, nil
+	return imgPNG, imgBMP, nil
 }
 
 // The function draws a vertical line in the given coordinate
@@ -193,30 +198,50 @@ func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
 	return nil
 }
 
-// Function decoding any audio file from the specified codec (mp3 or amr) to wav.
-// After that, the wav file is read in a slice of bytes, and the encoded file is deleted.
-func decodeToWAV(nameFile, codec string) ([]byte, error) {
-	file := srvTmpFolder + nameFile + "." + codec
-	fileWAV := srvTmpFolder + nameFile + ".wav"
+// Function decoding any audio file from the specified codec (mp3 or amr) to any audio codec.
+// After that, the audio file is read in a slice of bytes, and the encoded file is deleted.
+func decodeAudio(nameFile, codecFrom, codecTo, remove string) ([]byte, error) {
+	fileSource := srvTmpFolder + nameFile + "." + codecFrom
+	fileResult := srvTmpFolder + nameFile + "." + codecTo
 
-	if _, err := os.Stat(fileWAV); !os.IsNotExist(err) {
-		if err := os.Remove(fileWAV); err != nil {
-			log.Error(4, "Cann't delete file", fileWAV)
+	if _, err := os.Stat(fileResult); !os.IsNotExist(err) {
+		if err := os.Remove(fileResult); err != nil {
+			log.Error(4, "Cann't delete file", fileResult)
 		}
 	}
-	com := fmt.Sprintln(fmt.Sprintf(ffmpegDecodeToWav, file, fileWAV))
+	com := fmt.Sprintln(fmt.Sprintf(ffmpegDecode, fileSource, fileResult))
 	_, err := execCommand(com)
 	// log.Debug(com)
 	if err != nil {
 		return nil, err
 	}
-	content, err := ioutil.ReadFile(fileWAV)
+	content, err := ioutil.ReadFile(fileResult)
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
 
-	if err := os.Remove(file); err != nil {
-		log.Error(4, "Cann't delete file", file)
+	switch remove {
+	case "source":
+		if err := os.Remove(fileSource); err != nil {
+			log.Error(4, "Cann't delete file", fileSource)
+		}
+	case "result":
+		if err := os.Remove(fileResult); err != nil {
+			log.Error(4, "Cann't delete file", fileResult)
+		}
+	}
+
+	return content, nil
+}
+
+func contentMP3(nameFile string) ([]byte, error) {
+	file, err := os.Open(srvTmpFolder + nameFile + ".mp3")
+	if err != nil {
+		return nil, err
+	}
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
 	}
 	return content, nil
 }
@@ -238,6 +263,13 @@ func updateAPI(db *gorm.DB, model interface{}, sys callingSysSettings) *gorm.DB 
 // The function adds a row to the CallingSys_TestResults table for the given call_id
 func (i callingSysTestResults) updateCallsInfo(db *gorm.DB, callID string) error {
 	if err := db.Model(&i).Where(`"CallID"=?`, callID).Updates(i).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (i testFilesWEB) insertWebInfo(db *gorm.DB) error {
+	if err := db.Create(&i).Error; err != nil {
 		return err
 	}
 	return nil
