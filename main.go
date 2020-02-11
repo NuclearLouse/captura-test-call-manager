@@ -21,8 +21,8 @@ import (
 	"strings"
 	"syscall"
 
-	"redits.oculeus.com/asorokin/my_packages/crypter"
-	log "redits.oculeus.com/asorokin/my_packages/logging"
+	"./crypter"
+	log "./logger"
 )
 
 const (

@@ -23,13 +23,13 @@ import (
 	"strings"
 	"time"
 
+	log "./logger"
 	"github.com/jinzhu/gorm"
 	"golang.org/x/image/bmp"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/net/html/charset"
-	log "redits.oculeus.com/asorokin/my_packages/logging"
 )
 
 // var message = fmt.Sprintf
@@ -219,18 +219,16 @@ func decodeAudio(nameFile, codecFrom, codecTo, remove string) ([]byte, error) {
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
-
+	var file string
 	switch remove {
 	case "source":
-		if err := os.Remove(fileSource); err != nil {
-			log.Error(4, "Cann't delete file", fileSource)
-		}
+		file = fileSource
 	case "result":
-		if err := os.Remove(fileResult); err != nil {
-			log.Error(4, "Cann't delete file", fileResult)
-		}
+		file = fileResult
 	}
-
+	if err := os.Remove(file); err != nil {
+		log.Error(4, "Cann't delete file", file)
+	}
 	return content, nil
 }
 

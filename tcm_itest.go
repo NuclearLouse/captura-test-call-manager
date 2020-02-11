@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	log "redits.oculeus.com/asorokin/my_packages/logging"
+	log "./logger"
 
 	"github.com/jinzhu/gorm"
 )

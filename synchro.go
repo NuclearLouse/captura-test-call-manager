@@ -11,7 +11,7 @@ import (
 	"io"
 	"time"
 
-	log "redits.oculeus.com/asorokin/my_packages/logging"
+	log "./logger"
 
 	"github.com/jinzhu/gorm"
 	gormbulk "github.com/t-tiger/gorm-bulk-insert"

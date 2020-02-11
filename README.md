@@ -7,8 +7,8 @@
 
 **Systems Home Pages**
 
-[NetSense:] (https://arptel.com/index.html)
+[NetSense](https://arptel.com/index.html)
 
-[iTest:] (http://www.i-test.net/)
+[iTest](http://www.i-test.net/)
 
-[Assure:] (https://www.csgi.com/portfolio/csg-wholesale/assure/)
+[Assure](https://www.csgi.com/portfolio/csg-wholesale/assure/)

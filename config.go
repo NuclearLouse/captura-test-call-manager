@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"redits.oculeus.com/asorokin/my_packages/crypter"
+	"./crypter"
 
 	"github.com/go-ini/ini"
 )
@@ -36,41 +36,6 @@ type Config struct {
 		CreateTables bool   `ini:"create_tables"`
 	} `ini:"connectdb"`
 }
-
-// type Config struct {
-// 	Application `ini:"application"`
-// 	Logger      `ini:"logger"`
-// 	ConnectDB   `ini:"connectdb"`
-// }
-
-// type Application struct {
-// 	// PrepareRequest       bool   `ini:"prepare_request"`
-// 	Ffmpeg              string `ini:"ffmpeg"`
-// 	IntervalDeleteTests int64  `ini:"delete_old_tests"`
-// 	IntervalCheckTests  int64  `ini:"check_tests"`
-// 	IntervalCheckSyncro int64  `ini:"check_syncro"`
-// 	// IntervalPrepareTests int64  `ini:"prepare_tests"`
-// }
-
-// type Logger struct {
-// 	LogPath  string `ini:"log_path"`
-// 	LogLevel string `ini:"log_level"`
-// 	Rotate   string `ini:"rotate"`
-// }
-
-// type ConnectDB struct {
-// 	Dialect      string `ini:"db_dialect"`
-// 	Host         string `ini:"host"`
-// 	Port         string `ini:"port"`
-// 	Database     string `ini:"database"`
-// 	SchemaPG     string `ini:"schema_pg"`
-// 	User         string `ini:"user"`
-// 	Pass         string `ini:"password"`
-// 	CryptPass    string `ini:"crypt_pass"`
-// 	SslMode      bool   `ini:"ssl_mode"`
-// 	SQLitePath   string `ini:"sqlite_path"`
-// 	CreateTables bool   `ini:"create_tables"`
-// }
 
 func readConfig(configFile, key string) (*Config, error) {
 	cfg := &Config{}
