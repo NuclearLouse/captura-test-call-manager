@@ -71,6 +71,17 @@ func (assureAPI) newTestDestination(nit foundTest) testSetDestination {
 	}
 }
 
+func (assureAPI) newTestSMS(nit foundTest) testSetSMS {
+	return testSetSMS{
+		NoOfExecutions: nit.TestCalls,
+		TestSetItems: []batchSMS{batchSMS{
+			SMSRouteID:      nit.TestSysRouteID, // нужен route_id для SMS
+			DestinationID:   nit.DestinationID,  // нужен destination_id для SMS
+			SMSTemplateName: nit.TestComment},   // нужен template_name
+		},
+	}
+}
+
 func (api assureAPI) buildNewTests(nit foundTest) (interface{}, error) {
 	if nit.BNumber != "" {
 		bnums := api.parseBNumbers(nit.BNumber)
@@ -80,6 +91,11 @@ func (api assureAPI) buildNewTests(nit foundTest) (interface{}, error) {
 	if nit.TestCalls == 0 {
 		return struct{}{}, errors.New("zero calls initialized")
 	}
+
+	if nit.TestType == "SMS" {
+		return api.newTestSMS(nit), nil
+	}
+
 	return api.newTestDestination(nit), nil
 }
 
@@ -180,6 +196,10 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	case 4:
 		// 4 - Finishing
 		log.Debug("The end test for test_ID", testid)
+
+		//! тут нужна проверка на тип теста SMS
+		//! и соответственно получение других результатов
+
 		//Test Details : CLI - FAS - VQ - with audio
 		req := fmt.Sprintf("%sTest+Details+:+CLI+-+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, testid)
 		res, err := api.requestGET(req)
@@ -330,6 +350,7 @@ func (assureAPI) insertCallsInfo(db *gorm.DB, tr testResultAssure, lt foundTest)
 			VoiceQualityMos:          res.MOSA,
 			PDD:                      res.PGRD,
 			CallingNumber:            res.ANumber,
+			FasResult:                res.Result,
 		}
 		if err := db.Create(&callinfo).Error; err != nil {
 			return err
@@ -357,6 +378,8 @@ type assureAPI struct {
 	NewTestGet        string `gorm:"size:25"`
 	NodesCapabilities string `gorm:"size:25"`
 	Version           string `gorm:"size:25"`
+	SmsRoutes         string `gorm:"size:25"`
+	SmsTemplates      string `gorm:"size:25"`
 }
 
 //-----------------------------------------------------------------------------
@@ -427,6 +450,62 @@ type assureRoute struct {
 	SwitchName             string      `json:"SwitchName" gorm:"type:varchar(100)"`
 }
 
+type smsRoutes struct {
+	QueryResult1 []assureSmsRoute
+}
+
+func (assureSmsRoute) TableName() string {
+	return schemaPG + "CallingSys_assure_sms_routes"
+}
+
+type assureSmsRoute struct {
+	SMSRouteID             int         `json:"SMSRouteID" gorm:"type:int"`
+	SMSRouteExtID          interface{} `json:"SMSRouteExtID" gorm:"type:varchar(100)"`
+	PoPID                  int         `json:"PoPID" gorm:"type:int"`
+	Name                   string      `json:"Name" gorm:"type:varchar(100)"`
+	ShortName              string      `json:"ShortName" gorm:"type:varchar(25)"`
+	Carrier                string      `json:"Carrier" gorm:"type:varchar(100)"`
+	SMSAdapterInstanceID   int         `json:"SMSAdapterInstanceID" gorm:"type:int"`
+	SMSAdapterInstanceName string      `json:"SMSAdapterInstanceName"`
+	SMSRouteImportanceID   int         `json:"SMSRouteImportanceID" gorm:"type:int"`
+	SMSRouteImportanceName string      `json:"SMSRouteImportanceName" gorm:"type:varchar(25)"`
+	RouteClass             string      `json:"RouteClass" gorm:"type:varchar(25)"`
+	Active                 bool        `json:"Active" gorm:"type:boolean"`
+	SMSRouteProperties     string      `json:"SMSRouteProperties" gorm:"type:varchar(100)"`
+	NumberManipulationRule interface{} `json:"NumberManipulationRule" gorm:"type:varchar(100)"`
+	Description            interface{} `json:"Description" gorm:"type:varchar(100)"`
+	RouteTypeID            interface{} `json:"RouteTypeID" gorm:"type:varchar(100)"`
+	RouteTypeName          interface{} `json:"RouteTypeName" gorm:"type:varchar(100)"`
+	IsMainProduct          interface{} `json:"IsMainProduct" gorm:"type:varchar(100)"`
+	CreatedBy              int         `json:"CreatedBy" gorm:"type:int"`
+	Created                string      `json:"Created" gorm:"type:varchar(100)"`
+	ModifiedBy             int         `json:"ModifiedBy" gorm:"type:int"`
+	Modified               string      `json:"Modified" gorm:"type:varchar(100)"`
+}
+
+type smsTemplates struct {
+	QueryResult1 []assureSmsTemplate
+}
+
+func (assureSmsTemplate) TableName() string {
+	return schemaPG + "CallingSys_assure_sms_templates"
+}
+
+type assureSmsTemplate struct {
+	SMSTemplateID           int         `json:"SMSTemplateID" gorm:"type:int"`
+	PoPID                   int         `json:"PoPID" gorm:"type:int"`
+	Name                    string      `json:"Name" gorm:"type:varchar(100)"`
+	SMSAdapterInstanceID    int         `json:"SMSAdapterInstanceID" gorm:"type:int"`
+	SMSAdapaterInstanceName string      `json:"SMSAdapaterInstanceName" gorm:"type:varchar(25)"`
+	TestTypeID              int         `json:"TestTypeID" gorm:"type:int"`
+	TestTypeName            string      `json:"TestTypeName" gorm:"type:varchar(25)"`
+	Description             interface{} `json:"Description" gorm:"type:varchar(100)"`
+	CreatedBy               int         `json:"CreatedBy" gorm:"type:int"`
+	Created                 string      `json:"Created" gorm:"type:varchar(100)"`
+	ModifiedBy              int         `json:"ModifiedBy" gorm:"type:int"`
+	Modified                string      `json:"Modified" gorm:"type:varchar(100)"`
+}
+
 //-----------------------------------------------------------------------------
 // *******************Structs for initiated new tests*******************
 //-----------------------------------------------------------------------------
@@ -450,6 +529,19 @@ type batchBnumbers struct {
 	RouteID      int
 	PhoneNumber  int64
 }
+
+type testSetSMS struct {
+	NoOfExecutions int
+	TestSetItems   []batchSMS
+}
+
+type batchSMS struct {
+	SMSRouteID      int
+	DestinationID   int
+	SMSTemplateName string
+}
+
+//`{"NoOfExecutions":%d,"TestSetItems": [{"SMSRouteID":%d,"DestinationID":%d,"SMSTemplateName":"%s"}]}
 
 //-----------------------------------------------------------------------------
 // ****************Structs for obtain tests status and results****************

@@ -41,6 +41,8 @@ func createTables(db *gorm.DB) error {
 		&assureAPI{},
 		&assureRoute{},
 		&assureDestination{},
+		&assureSmsRoute{},
+		&assureSmsTemplate{},
 	}
 	var errs error
 	for _, table := range listTables {
@@ -522,9 +524,18 @@ func callSyncRoutesFunction(db *gorm.DB, sysID int) error {
 }
 
 func callSyncDestsFunction(db *gorm.DB, sysID int) error {
+	// потом тут нужна будет заливка данных на систему Assure
 	query := `SELECT "Destinationid" destid, "Destination" dest, "Dialcode" code
     FROM mtcarrierdbret."Dest_Prot" 
     WHERE current_date >= "Validfrom" AND current_date < "Validuntil"
     ORDER BY "Destination", "Dialcode"`
 	return db.Raw(query).Error
+}
+
+func callSyncSmsRoutesFunction(db *gorm.DB, sysID int) error {
+	return nil
+}
+
+func callSyncSmsTemplatesFunction(db *gorm.DB, sysID int) error {
+	return nil
 }

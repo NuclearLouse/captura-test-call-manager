@@ -69,7 +69,6 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 		po."RequestID",
 		COALESCE(po."TestingSystemRequestID",'') "TestingSystemRequestID",
 		po."RequestState", 
-		po."Route_Carrier", 
 		rt."Remote_Route_ID",
 		po."SupplierID",
 		po."Test_Calls",
@@ -101,7 +100,6 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 				&test.RequestID,              //RequestID from Purch_Oppt
 				&test.TestingSystemRequestID, //TestingSystemRequestID
 				&test.RequestState,           //RequestState
-				&test.RouteCarrier,           //Route_Carrier
 				&test.TestSysRouteID,         //CallingSys_RouteID
 				&test.SupplierID,             //SupplierID
 				&test.TestCalls,              //TestCalls

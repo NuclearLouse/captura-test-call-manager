@@ -84,6 +84,20 @@ func (api assureAPI) runSyncro(db *gorm.DB, s syncAutomation) error {
 		if err := callSyncDestsFunction(db, api.SystemID); err != nil {
 			return err
 		}
+	case "assure_sms_routes":
+		if err := api.getAssureSynchro(db, api.SmsRoutes); err != nil {
+			return err
+		}
+		if err := callSyncSmsRoutesFunction(db, api.SystemID); err != nil {
+			return err
+		}
+	case "assure_sms_templates":
+		if err := api.getAssureSynchro(db, api.SmsTemplates); err != nil {
+			return err
+		}
+		if err := callSyncSmsTemplatesFunction(db, api.SystemID); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -157,7 +171,44 @@ func insertAssureData(db *gorm.DB, r string, body io.ReadCloser) error {
 				}
 			}
 			bulkslice = append(bulkslice, ad)
+		}
+	case "SMSRoutes":
+		var smsr smsRoutes
+		if err := db.Delete(assureSmsRoute{}).Error; err != nil {
+			return err
+		}
+		log.Debug("Successeful truncate table CallingSys_assure_sms_routes")
 
+		if err := json.NewDecoder(body).Decode(&smsr); err != nil {
+			return err
+		}
+		for _, asr := range smsr.QueryResult1 {
+			if dialectDB == "sqlite3" {
+				if err := tx.Create(&asr).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+			bulkslice = append(bulkslice, asr)
+		}
+	case "SMSTemplates":
+		var smst smsTemplates
+		if err := db.Delete(assureSmsTemplate{}).Error; err != nil {
+			return err
+		}
+		log.Debug("Successeful truncate table CallingSys_assure_sms_templates")
+
+		if err := json.NewDecoder(body).Decode(&smst); err != nil {
+			return err
+		}
+		for _, ast := range smst.QueryResult1 {
+			if dialectDB == "sqlite3" {
+				if err := tx.Create(&ast).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+			bulkslice = append(bulkslice, ast)
 		}
 	}
 	switch dialectDB {

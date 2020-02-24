@@ -104,7 +104,6 @@ type foundTest struct {
 	RequestID              int
 	TestingSystemRequestID string
 	RequestState           int
-	RouteCarrier           string
 	TestSysRouteID         int
 	SupplierID             int
 	TestCalls              int
@@ -137,7 +136,6 @@ func (testFilesWEB) TableName() string {
 }
 
 type testFilesWEB struct {
-	RecordID   int64
 	Callid     string
 	Testsystem int
 	Diagram    []byte
