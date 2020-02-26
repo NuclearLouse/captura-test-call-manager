@@ -199,9 +199,12 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 
 		//! тут нужна проверка на тип теста SMS
 		//! и соответственно получение других результатов
+		//Details : SMS MT
+		// req := fmt.Sprintf("%sDetails+:+SMS+MT&From=%s&To=%s", api.QueryResults, testid)
 
 		//Test Details : CLI - FAS - VQ - with audio
 		req := fmt.Sprintf("%sTest+Details+:+CLI+-+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, testid)
+
 		res, err := api.requestGET(req)
 		log.Debugf("Sending request TestResults for system %s test_ID %s", api.SystemName, testid)
 		if err != nil {
