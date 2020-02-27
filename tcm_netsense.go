@@ -36,37 +36,22 @@ func (api netSenseAPI) checkAuth(db *gorm.DB) bool {
 	return true
 }
 
-func (api netSenseAPI) requestGET(r string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", api.URL+r, nil)
+func (api netSenseAPI) newRequest(method, request string, body []byte) (*http.Response, error) {
+	req, err := http.NewRequest(method, api.URL+request, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
-	res, err := api.httpRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
 
-func (api netSenseAPI) requestPOST(r string, xmlStr []byte) (*http.Response, error) {
-	req, err := http.NewRequest("POST", api.URL+r, bytes.NewBuffer(xmlStr))
-	req.Header.Set("Content-Type", "application/xml")
-	if err != nil {
-		return nil, err
+	if method == "POST" {
+		req.Header.Set("Content-Type", "application/xml")
 	}
-	res, err := api.httpRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
 
-func (api netSenseAPI) httpRequest(req *http.Request) (*http.Response, error) {
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	return res, nil
+
 }
 
 func (netSenseAPI) parseBNumbers(customBNumbers string) (nums []string) {
@@ -137,7 +122,7 @@ func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 
 	}
 	log.Debug("Build request body: ", string(xmlBody))
-	res, err := api.requestPOST(api.TestInitList, xmlBody)
+	res, err := api.newRequest("POST", api.TestInitList, xmlBody)
 	if err != nil {
 		return err
 	}
@@ -176,7 +161,7 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	}
 	// fmt.Println(string(xmlBody))
 
-	res, err := api.requestPOST(api.TestInitList, xmlBody)
+	res, err := api.newRequest("POST", api.TestInitList, xmlBody)
 	if err != nil {
 		return err
 	}
@@ -187,16 +172,15 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	}
 	res.Body.Close()
 
-	var statistic purchOppt
-	// !переделать как для Assure
-	switch ts.CallListResponseArray.CallLogResponses.Status {
+	var ti purchOppt
+	ti.TestResult = ts.CallListResponseArray.CallLogResponses.Status
+	switch ti.TestResult {
 	case "RUNNING":
-		log.Debug("Wait. The test status is RUNNING for test_ID:", testid)
-		return nil
+		log.Debug("Wait. The test is not over yet for test_ID", testid)
 	case "END":
-		log.Debug("The end test for test_ID", testid)
+		log.Info("The end test for test_ID", testid)
 		request := fmt.Sprintf("%s/%s/1/%s", api.TestInit, api.AuthKey, ts.CallListResponseArray.CallLogResponses.CallListLogID)
-		res, err := api.requestGET(request)
+		res, err := api.newRequest("GET", request, nil)
 		log.Debugf("Sending request TestResults for system Assure test_ID %s", testid)
 		if err != nil {
 			return err
@@ -219,27 +203,23 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		log.Infof("Successfully insert data from table TestResults for system Netsense test_ID %s", testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
 
-		statistic.callsStatistic(db, testid)
-		statistic.TestedFrom = netsenseParseTime(testedFrom)
-		statistic.TestedByUser = lt.RequestByUser
-		statistic.TestResult = "OK"
-		if err := statistic.updateStatistic(db, testid); err != nil {
-			return err
-		}
-		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
+		ti.callsStatistic(db, testid)
+		ti.TestedFrom = netsenseParseTime(testedFrom)
+		ti.TestedByUser = lt.RequestByUser
+		// statistic.TestComment = "Bla bla bla test by Assure for test_ID:" + testid
 		go api.downloadAudioFiles(db, callsinfo)
-		return nil
+
 	default:
 		// ?Most likely this situation will never arise
 		log.Info("Failed test for test_ID", testid)
-		statistic.RequestState = 2
-		statistic.TestedUntil = time.Now()
-		statistic.TestComment = ts.CallListResponseArray.CallLogResponses.Status
-		if err := statistic.updateStatistic(db, testid); err != nil {
-			return err
-		}
-		log.Debug("Successfully update data to the table Purch_Oppt from test_ID", testid)
+		ti.RequestState = 2
+		ti.TestedUntil = time.Now()
+		// statistic.TestComment = "Bla bla bla test by Assure for test_ID:" + testid
 	}
+	if err := ti.updateStatistic(db, testid); err != nil {
+		return err
+	}
+	log.Debug("Successfully update data to the table Purch_Oppt from test_ID", testid)
 	return nil
 }
 
@@ -344,7 +324,7 @@ func (api netSenseAPI) downloadAudioFiles(db *gorm.DB, tr testResultNetsense) {
 }
 
 func (api netSenseAPI) saveWavFile(request, nameFile string) ([]byte, error) {
-	res, err := api.requestGET(request)
+	res, err := api.newRequest("GET", request, nil)
 	if err != nil {
 		return nil, err
 	}

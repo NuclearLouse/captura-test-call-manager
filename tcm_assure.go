@@ -99,38 +99,23 @@ func (api assureAPI) buildNewTests(nit foundTest) (interface{}, error) {
 	return api.newTestDestination(nit), nil
 }
 
-func (api assureAPI) requestGET(r string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", api.URL+r, nil)
+func (api assureAPI) newRequest(method, request string, body []byte) (*http.Response, error) {
+	req, err := http.NewRequest(method, api.URL+request, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
-	res, err := api.httpRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
 
-func (api assureAPI) requestPOST(r string, jsonStr []byte) (*http.Response, error) {
-	req, err := http.NewRequest("POST", api.URL+r, bytes.NewBuffer(jsonStr))
-	req.Header.Set("Content-Type", "text/json")
-	if err != nil {
-		return nil, err
+	if method == "POST" {
+		req.Header.Set("Content-Type", "text/json")
 	}
-	res, err := api.httpRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
 
-func (api assureAPI) httpRequest(req *http.Request) (*http.Response, error) {
 	req.SetBasicAuth(api.User, api.Pass)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	return res, nil
+
 }
 
 func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
@@ -144,7 +129,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 		return err
 	}
 	log.Debug("Build request body: ", string(jsonBody))
-	res, err := api.requestPOST(api.StatusTests, jsonBody)
+	res, err := api.newRequest("POST", api.StatusTests, jsonBody)
 	if err != nil {
 		return err
 	}
@@ -172,7 +157,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	testid := lt.TestingSystemRequestID
 	log.Debugf("Sending a request Complete_Test system %s for test_id %s", api.SystemName, testid)
-	res, err := api.requestGET(api.StatusTests + testid)
+	res, err := api.newRequest("GET", api.StatusTests+testid, nil)
 	if err != nil {
 		return err
 	}
@@ -199,7 +184,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		// req := fmt.Sprintf("%sDetails+:+SMS+MT&From=%s&To=%s", api.QueryResults, testid)
 
 		req := fmt.Sprintf("%sTest+Details+:+CLI+-+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, testid)
-		res, err := api.requestGET(req)
+		res, err := api.newRequest("GET", req, nil)
 		log.Debugf("Sending request TestResults for system %s test_ID %s", api.SystemName, testid)
 		if err != nil {
 			return err

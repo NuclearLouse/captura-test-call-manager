@@ -128,8 +128,14 @@ func (api itestAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		return err
 	}
 
-	// !переделать как для Assure
-	if ts.CallsTotal == ts.CallsComplete {
+	var ti purchOppt
+	// ! Тут нет проверки отмененного или зависшего теста, а именно смены ti.RequestState = 2
+	ti.TestResult = "Running"
+	switch ts.CallsTotal == ts.CallsComplete {
+	case false:
+		log.Info("Wait. The test is not over yet for test_ID", testid)
+	case true:
+		log.Info("The end test for test_ID", testid)
 		req := fmt.Sprintf("%s?t=%d&jid=%s", api.URL, api.TestStatusDetails, testid)
 		res, err := api.requestPOST(req)
 		log.Debugf("Sending request TestResults fot system %s test_ID %s", lt.SystemName, testid)
@@ -151,17 +157,17 @@ func (api itestAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		}
 		log.Infof("Successfully insert data from table TestResults for system %s test_ID %s", lt.SystemName, testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
-		var statistic purchOppt
-		statistic.callsStatistic(db, testid)
-		statistic.TestedFrom = time.Unix(tr.TestOverview.Init, 0)
-		if err := statistic.updateStatistic(db, testid); err != nil {
-			return err
-		}
-		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
+		ti.callsStatistic(db, testid)
+		ti.TestedFrom = time.Unix(tr.TestOverview.Init, 0)
+		ti.TestResult = "Finishing"
+
 		go api.downloadAudioFiles(db, tr)
-		return nil
 	}
-	log.Info("Wait. The test is not over yet for test_ID", testid)
+
+	if err := ti.updateStatistic(db, testid); err != nil {
+		return err
+	}
+	log.Debug("Successfully update data to the table Purch_Oppt from test_ID", testid)
 	return nil
 }
 

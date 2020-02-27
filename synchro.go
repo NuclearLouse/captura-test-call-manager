@@ -106,7 +106,7 @@ func (api assureAPI) getAssureSynchro(db *gorm.DB, r string) error {
 	log.Infof("Start downloading data for updating %s for system %s", r, api.SystemName)
 	// log.Debug("API Settings", api)
 	var err error
-	res, err := api.requestGET(api.QueryResults + r)
+	res, err := api.newRequest("GET", api.QueryResults+r, nil)
 	if err != nil {
 		return err
 	}
