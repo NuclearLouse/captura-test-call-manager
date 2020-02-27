@@ -21,6 +21,7 @@ type tester interface {
 	runNewTest(*gorm.DB, foundTest) error
 	runSyncro(*gorm.DB, syncAutomation) error
 	checkTestComplete(*gorm.DB, foundTest) error
+	cancelTest(*gorm.DB, string) error
 	// checkAuth(*gorm.DB) bool
 }
 
@@ -112,11 +113,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 				&test.TestType)      //TestSystemCallType from Purch_Statuses
 			if err != nil {
 				log.Errorf(10, "Could not add individual tests to the list of tests found for system %s|%v", sysName, err)
-				newTestInfo := purchOppt{
-					TestingSystemRequestID: "-1",
-					TestedUntil:            time.Now(),
-					TestComment:            err.Error()}
-				if err := newTestInfo.updateTestInfo(db, test.RequestID); err != nil {
+				if err := testFail(err).updateTestInfo(db, test.RequestID); err != nil {
 					log.Errorf(1, "Cann't insert data about 'not add individual test to the test list'|%v", err)
 				}
 				continue
@@ -130,33 +127,33 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 			continue
 		}
 		for _, t := range ft {
+			var newTestInfo purchOppt
 			switch t.RequestState {
 			case 1:
 				log.Infof("Initiated new test %s for system %s", t.TestType, t.SystemName)
 				if err := api.runNewTest(db, t); err != nil {
 					log.Errorf(7, "Could not start a new test for system %s|%v", t.SystemName, err)
-					newTestInfo := purchOppt{
-						TestingSystemRequestID: "-1",
-						TestedUntil:            time.Now(),
-						TestComment:            err.Error()}
-					if err := newTestInfo.updateTestInfo(db, t.RequestID); err != nil {
-						log.Errorf(1, "Cann't insert data about 'not start new test'|%v", err)
-					}
-					continue
+					newTestInfo = testFail(err)
 				}
+
 			case 2:
 				log.Infof("Checking the end of test %s for system %s and test_id:%s", t.TestType, t.SystemName, t.TestingSystemRequestID)
 				if err := api.checkTestComplete(db, t); err != nil {
 					log.Errorf(8, "Could not check status for test %s system %s|%v", t.TestingSystemRequestID, t.SystemName, err)
-					newTestInfo := purchOppt{
-						TestingSystemRequestID: "0",
-						TestedUntil:            time.Now(),
-						TestComment:            err.Error()}
-					if err := newTestInfo.updateTestInfo(db, t.RequestID); err != nil {
-						log.Errorf(1, "Cann't insert data about 'check test status'|%v", err)
-					}
-					continue
+					newTestInfo = testFail(err)
 				}
+
+			case -1:
+				//! Предложить этот статус для отмены тестов
+				log.Info("User canceled test")
+				if err := api.cancelTest(db, t.TestingSystemRequestID); err != nil {
+					log.Errorf(999, "Blb blb blb %s %s|%v", t.TestingSystemRequestID, t.SystemName, err)
+				}
+				newTestInfo = testCancel()
+			}
+
+			if err := newTestInfo.updateTestInfo(db, t.RequestID); err != nil {
+				log.Errorf(1, "Cann't insert data in Purch_Oppt table for new test %d|%v", t.RequestID, err)
 			}
 		}
 		time.Sleep(time.Duration(interval) * time.Second)

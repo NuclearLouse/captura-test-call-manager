@@ -352,6 +352,20 @@ func (po purchOppt) updateStatistic(db *gorm.DB, id string) error {
 	return db.Model(&po).Where(`"TestingSystemRequestID"=?`, id).Update(po).Error
 }
 
+func testFail(err error) purchOppt {
+	return purchOppt{
+		TestingSystemRequestID: "-1",
+		TestedUntil:            time.Now(),
+		TestComment:            err.Error()}
+}
+
+func testCancel() purchOppt {
+	return purchOppt{
+		TestedUntil: time.Now(),
+		TestResult:  "Cancelled",
+	}
+}
+
 // The following three functions bring the response fields containing time to a common format
 // and type of time, since all systems represent time in different formats.
 func iTestParseTime(strTime string) time.Time {

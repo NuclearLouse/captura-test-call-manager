@@ -109,6 +109,12 @@ func (api netSenseAPI) buildNewTest(nit foundTest) testInitNetsense {
 	}
 }
 
+func (api netSenseAPI) cancelTest(db *gorm.DB, testid string) error {
+	log.Debugf("Sending a request Cancel Test for system %s and test_id %s", api.SystemName, testid)
+
+	return nil
+}
+
 func (api netSenseAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	if nit.TestCalls == 0 {
 		return errors.New("zero calls initialized")

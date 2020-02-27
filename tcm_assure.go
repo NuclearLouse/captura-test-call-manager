@@ -104,22 +104,18 @@ func (api assureAPI) newRequest(method, request string, body []byte) (*http.Resp
 	if err != nil {
 		return nil, err
 	}
-
 	if method == "POST" {
 		req.Header.Set("Content-Type", "text/json")
 	}
-
 	req.SetBasicAuth(api.User, api.Pass)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	return res, nil
-
 }
 
 func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
-
 	newTest, err := api.buildNewTests(nit)
 	if err != nil {
 		return err
@@ -178,12 +174,22 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	case 4:
 		log.Info("The end test for test_ID", testid)
 
-		//! тут нужна проверка на тип теста SMS
-		//! и соответственно получение других результатов
-		//Details : SMS MT
-		// req := fmt.Sprintf("%sDetails+:+SMS+MT&From=%s&To=%s", api.QueryResults, testid)
+		var req string
+		if strings.Contains(strings.ToLower(lt.TestType), "sms") == true {
+			// Возможны два варианта запросов для получения результатов SMS тестов:
+			//**************** 1 ********************
+			// По ID теста
+			// https://h-54-246-182-248.csg-assure.com/api/TestBatchResults/61825
+			// req = api.TestResults + result.TestBatchID
 
-		req := fmt.Sprintf("%sTest+Details+:+CLI+-+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, testid)
+			//**************** 2 ********************
+			// По дате
+			// https://h-54-246-182-248.csg-assure.com/api/QueryResults2?code=Details+:+SMS+MT&From=2020-02-24&To=2020-02-24
+			req = fmt.Sprintf("%sDetails+:+SMS+MT&From=%s&To=%[2]s", api.QueryResults, time.Now().Format("2006-01-02"))
+		} else {
+			req = fmt.Sprintf("%sTest+Details+:+CLI+-+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, testid)
+		}
+
 		res, err := api.newRequest("GET", req, nil)
 		log.Debugf("Sending request TestResults for system %s test_ID %s", api.SystemName, testid)
 		if err != nil {
@@ -191,6 +197,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		}
 		log.Infof("Successful response to the request TestResults for system %s test_ID %s", api.SystemName, testid)
 
+		//! в структурe результатов теста надо добавить поля SMS
 		var callsinfo testResultAssure
 		if err := json.NewDecoder(res.Body).Decode(&callsinfo); err != nil {
 			return err
@@ -199,17 +206,19 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 
 		start := time.Now()
 		log.Debugf("Start transaction insert into the table TestResults for system Assure test_id %s", testid)
+		//! При SMS тесте возможно надо вносить другие данные
 		if err := api.insertCallsInfo(db, callsinfo, lt); err != nil {
 			return err
 		}
 		log.Infof("Successfully insert data from table TestResults for system Assure test_ID %s", testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
 
+		//! При SMS тесте статистику надо считать по другому, если вообще надо.
 		ti.callsStatistic(db, testid)
 		ti.TestedFrom = assureParseTime(result.Created)
 		ti.TestedByUser = lt.RequestByUser
 		// statistic.TestComment = "Bla bla bla test by Assure for test_ID:" + testid
-
+		//! При SMS тесте не надо загружать аудио файлы
 		go api.downloadAudioFiles(db, callsinfo)
 
 	case 5, 6, 7:
@@ -222,6 +231,16 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		return err
 	}
 	log.Debug("Successfully update data to the table Purch_Oppt from test_ID", testid)
+	return nil
+}
+
+func (api assureAPI) cancelTest(db *gorm.DB, testid string) error {
+	log.Debugf("Sending a request Cancel Test for system %s and test_id %s", api.SystemName, testid)
+	_, err := api.newRequest("DELETE", api.StatusTests+testid, nil)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

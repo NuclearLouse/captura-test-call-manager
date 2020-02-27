@@ -51,6 +51,12 @@ func (api itestAPI) parseBNumbers(customBNumbers string) (nums string) {
 	return
 }
 
+func (api itestAPI) cancelTest(db *gorm.DB, testid string) error {
+	log.Debugf("Sending a request Cancel Test for system %s and test_id %s", api.SystemName, testid)
+
+	return nil
+}
+
 func (api itestAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	//! Default 5 calls for iTest
 	if nit.TestCalls == 0 {
