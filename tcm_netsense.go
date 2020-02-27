@@ -188,6 +188,7 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	res.Body.Close()
 
 	var statistic purchOppt
+	// !переделать как для Assure
 	switch ts.CallListResponseArray.CallLogResponses.Status {
 	case "RUNNING":
 		log.Debug("Wait. The test status is RUNNING for test_ID:", testid)
@@ -218,7 +219,7 @@ func (api netSenseAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		log.Infof("Successfully insert data from table TestResults for system Netsense test_ID %s", testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
 
-		statistic = callsStatistic(db, testid)
+		statistic.callsStatistic(db, testid)
 		statistic.TestedFrom = netsenseParseTime(testedFrom)
 		statistic.TestedByUser = lt.RequestByUser
 		statistic.TestResult = "OK"

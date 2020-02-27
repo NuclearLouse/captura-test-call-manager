@@ -128,6 +128,7 @@ func (api itestAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		return err
 	}
 
+	// !переделать как для Assure
 	if ts.CallsTotal == ts.CallsComplete {
 		req := fmt.Sprintf("%s?t=%d&jid=%s", api.URL, api.TestStatusDetails, testid)
 		res, err := api.requestPOST(req)
@@ -150,7 +151,8 @@ func (api itestAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		}
 		log.Infof("Successfully insert data from table TestResults for system %s test_ID %s", lt.SystemName, testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
-		statistic := callsStatistic(db, testid)
+		var statistic purchOppt
+		statistic.callsStatistic(db, testid)
 		statistic.TestedFrom = time.Unix(tr.TestOverview.Init, 0)
 		if err := statistic.updateStatistic(db, testid); err != nil {
 			return err
