@@ -317,7 +317,7 @@ func labelEmptyBMP(label string) []byte {
 // find the end time of the last call [MAX("CallComplete")]
 // Counting the number of calls with a duration> 0,
 // and summarize the total duration of these calls
-func (po purchOppt) callsStatistic(db *gorm.DB, testid string) purchOppt {
+func (po *purchOppt) callsStatistic(db *gorm.DB, testid string) *purchOppt {
 	var total, complete, sumcalls float64
 	var max time.Time
 	db.Model(&callingSysTestResults{}).

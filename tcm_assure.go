@@ -191,16 +191,14 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	case 0, 1, 2, 3:
 		log.Debug("Wait. The test is not over yet for test_ID", testid)
 	case 4:
-		log.Debug("The end test for test_ID", testid)
+		log.Info("The end test for test_ID", testid)
 
 		//! тут нужна проверка на тип теста SMS
 		//! и соответственно получение других результатов
 		//Details : SMS MT
 		// req := fmt.Sprintf("%sDetails+:+SMS+MT&From=%s&To=%s", api.QueryResults, testid)
 
-		//Test Details : CLI - FAS - VQ - with audio
 		req := fmt.Sprintf("%sTest+Details+:+CLI+-+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, testid)
-
 		res, err := api.requestGET(req)
 		log.Debugf("Sending request TestResults for system %s test_ID %s", api.SystemName, testid)
 		if err != nil {
@@ -221,7 +219,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		}
 		log.Infof("Successfully insert data from table TestResults for system Assure test_ID %s", testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
-		// надо сделать чтобы ф-ция и принимала и возвращала purch_oppt
+
 		ti.callsStatistic(db, testid)
 		ti.TestedFrom = assureParseTime(result.Created)
 		ti.TestedByUser = lt.RequestByUser
@@ -234,14 +232,11 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		ti.RequestState = 2
 		ti.TestedUntil = time.Now()
 		// statistic.TestComment = "Bla bla bla test by Assure for test_ID:" + testid
-		if err := ti.updateStatistic(db, testid); err != nil {
-			return err
-		}
 	}
 	if err := ti.updateStatistic(db, testid); err != nil {
 		return err
 	}
-	log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
+	log.Debug("Successfully update data to the table Purch_Oppt from test_ID", testid)
 	return nil
 }
 
