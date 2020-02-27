@@ -313,8 +313,8 @@ func labelEmptyBMP(label string) []byte {
 }
 
 // CallsStatistics returns a structure for adding statistics to the PurchOppt table
-// For each test by its testID, I find the number of calls [Count(&total)],
-// find the end time of the last call [MAX("CallComplete")]
+// For each test by its testID, I find the number of calls Count(&total),
+// find the end time of the last call MAX("CallComplete")
 // Counting the number of calls with a duration> 0,
 // and summarize the total duration of these calls
 func (po *purchOppt) callsStatistic(db *gorm.DB, testid string) *purchOppt {
