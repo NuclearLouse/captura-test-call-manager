@@ -184,17 +184,13 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	}
 	res.Body.Close()
 
-	var statistic purchOppt
+	var ti purchOppt
+	ti.TestResult = result.String()
+
 	switch result.StatusID {
 	case 0, 1, 2, 3:
-		// 0 - Unknown
-		// 1 - Created
-		// 2 - Waiting
-		// 3 - Running
 		log.Debug("Wait. The test is not over yet for test_ID", testid)
-		return nil
 	case 4:
-		// 4 - Finishing
 		log.Debug("The end test for test_ID", testid)
 
 		//! тут нужна проверка на тип теста SMS
@@ -225,30 +221,27 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		}
 		log.Infof("Successfully insert data from table TestResults for system Assure test_ID %s", testid)
 		log.Debug("Elapsed time insert transaction", time.Since(start))
-		statistic = callsStatistic(db, testid)
-		statistic.TestedFrom = assureParseTime(result.Created)
-		statistic.TestedByUser = lt.RequestByUser
-		statistic.TestResult = "OK"
-		if err := statistic.updateStatistic(db, testid); err != nil {
-			return err
-		}
-		log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
+		// надо сделать чтобы ф-ция и принимала и возвращала purch_oppt
+		ti.callsStatistic(db, testid)
+		ti.TestedFrom = assureParseTime(result.Created)
+		ti.TestedByUser = lt.RequestByUser
+		// statistic.TestComment = "Bla bla bla test by Assure for test_ID:" + testid
+
 		go api.downloadAudioFiles(db, callsinfo)
-		return nil
+
 	case 5, 6, 7:
-		// 5 - Cancelling
-		// 6 - Cancelled
-		// 7 - Exception
 		log.Info("Cancelled test for test_ID", testid)
-		statistic.RequestState = 2
-		statistic.TestedUntil = time.Now()
-		statistic.TestComment = "Cancelled test by Assure for test_ID:" + testid
-		if err := statistic.updateStatistic(db, testid); err != nil {
+		ti.RequestState = 2
+		ti.TestedUntil = time.Now()
+		// statistic.TestComment = "Bla bla bla test by Assure for test_ID:" + testid
+		if err := ti.updateStatistic(db, testid); err != nil {
 			return err
 		}
-		log.Debug("Successfully update data to the table Purch_Oppt from test_ID", testid)
-		return nil
 	}
+	if err := ti.updateStatistic(db, testid); err != nil {
+		return err
+	}
+	log.Info("Successfully update data to the table Purch_Oppt from test_ID", testid)
 	return nil
 }
 
@@ -338,7 +331,7 @@ func (assureAPI) insertCallsInfo(db *gorm.DB, tr testResultAssure, lt foundTest)
 			CallID:                   strconv.Itoa(res.CallResultID),
 			CallListID:               lt.TestingSystemRequestID,
 			TestSystem:               lt.SystemID,
-			CallType:                 res.TestType, // or string(lt.TestType),
+			CallType:                 res.TestType,
 			Destination:              res.BNetwork,
 			CallStart:                callstart,
 			CallComplete:             time.Unix(callstart.Unix()+int64(res.DisconnectTime), 0),
@@ -560,6 +553,29 @@ type testStatusAssure struct {
 		Status   string `json:"Status"`
 		StatusID int    `json:"StatusID"`
 	} `json:"TestBatchItems"`
+}
+
+func (tsa testStatusAssure) String() string {
+	var status string
+	switch tsa.StatusID {
+	case 0:
+		status = "Unknown"
+	case 1:
+		status = "Created"
+	case 2:
+		status = "Waiting"
+	case 3:
+		status = "Running"
+	case 4:
+		status = "Finishing"
+	case 5:
+		status = "Cancelling"
+	case 6:
+		status = "Cancelled"
+	case 7:
+		status = "Exception"
+	}
+	return status
 }
 
 type testResultAssure struct {

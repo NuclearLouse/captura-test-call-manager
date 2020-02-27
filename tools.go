@@ -317,30 +317,29 @@ func labelEmptyBMP(label string) []byte {
 // find the end time of the last call [MAX("CallComplete")]
 // Counting the number of calls with a duration> 0,
 // and summarize the total duration of these calls
-func callsStatistic(db *gorm.DB, testid string) purchOppt {
+func (po purchOppt) callsStatistic(db *gorm.DB, testid string) purchOppt {
 	var total, complete, sumcalls float64
 	var max time.Time
-	var tr callingSysTestResults
-	db.Model(&tr).
+	db.Model(&callingSysTestResults{}).
 		Where(`"CallListID" = ?`, testid).
 		Select(`MAX("CallComplete")`).
 		Count(&total).
 		Row().
 		Scan(&max)
-	db.Model(&tr).
+	db.Model(&callingSysTestResults{}).
 		Where(`"CallListID" = ? AND "CallDuration" > 0`, testid).
 		Select(`SUM("CallDuration")`).
 		Count(&complete).
 		Row().
 		Scan(&sumcalls)
-	stat := purchOppt{
-		RequestState: 2,
-		TestedUntil:  max,
-		TestASR:      100 * complete / total,
-		TestACD:      sumcalls / complete / 60,
-		TestMinutes:  sumcalls / 60,
-	}
-	return stat
+
+	po.RequestState = 2
+	po.TestedUntil = max
+	po.TestASR = 100 * complete / total
+	po.TestACD = sumcalls / complete / 60
+	po.TestMinutes = sumcalls / 60
+
+	return po
 }
 
 // The function updates the information in the Purch_Oppt table about the running test.
