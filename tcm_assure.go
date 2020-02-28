@@ -141,6 +141,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	}
 
 	testinfo := purchOppt{
+		TestResult:             "Initiated",
 		TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
 		RequestState:           2}
 	if err := testinfo.updateTestInfo(db, nit.RequestID); err != nil {
@@ -169,8 +170,8 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	ti.TestResult = result.String()
 
 	switch result.StatusID {
-	case 0, 1, 2, 3:
-		log.Debug("Wait. The test is not over yet for test_ID", testid)
+	case 1, 2, 3:
+		log.Trace("Wait. The test is not over yet for test_ID", testid)
 	case 4:
 		log.Info("The end test for test_ID", testid)
 
@@ -221,7 +222,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		//! При SMS тесте не надо загружать аудио файлы
 		go api.downloadAudioFiles(db, callsinfo)
 
-	case 5, 6, 7:
+	case 0, 5, 6, 7:
 		log.Info("Cancelled test for test_ID", testid)
 		ti.RequestState = 2
 		ti.TestedUntil = time.Now()
@@ -290,7 +291,7 @@ func (api assureAPI) downloadAudioFiles(db *gorm.DB, tr testResultAssure) {
 		var x int
 		if res.TestType != "CLI" {
 			// TODO: Формулу потом надо пересмотреть
-			x, _ = strconv.Atoi(fmt.Sprintf("%.f", 500*res.BConnectTime/res.BDisconnectTime))
+			x, _ = strconv.Atoi(fmt.Sprintf("%.f", 500*res.BConnectTime/res.DisconnectTime))
 		}
 		pngImg, bmpImg, err := waveFormImage(callID, x)
 		if err != nil || len(bmpImg) == 0 || len(pngImg) == 0 {
