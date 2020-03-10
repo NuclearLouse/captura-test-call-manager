@@ -74,6 +74,7 @@ func (api assureAPI) runSyncro(db *gorm.DB, s syncAutomation) error {
 		if err := api.getAssureSynchro(db, api.Routes); err != nil {
 			return err
 		}
+		//TODO: Тут нужна мэпинг функция
 		if err := callSyncRoutesFunction(db, api.SystemID); err != nil {
 			return err
 		}
@@ -81,6 +82,7 @@ func (api assureAPI) runSyncro(db *gorm.DB, s syncAutomation) error {
 		if err := api.getAssureSynchro(db, api.Destinations); err != nil {
 			return err
 		}
+		//TODO: Тут нужна мэпинг функция
 		if err := callSyncDestsFunction(db, api.SystemID); err != nil {
 			return err
 		}
@@ -88,6 +90,7 @@ func (api assureAPI) runSyncro(db *gorm.DB, s syncAutomation) error {
 		if err := api.getAssureSynchro(db, api.SmsRoutes); err != nil {
 			return err
 		}
+		//TODO: Тут нужна мэпинг функция
 		if err := callSyncSmsRoutesFunction(db, api.SystemID); err != nil {
 			return err
 		}
@@ -95,6 +98,7 @@ func (api assureAPI) runSyncro(db *gorm.DB, s syncAutomation) error {
 		if err := api.getAssureSynchro(db, api.SmsTemplates); err != nil {
 			return err
 		}
+		//TODO: Тут нужна мэпинг функция
 		if err := callSyncSmsTemplatesFunction(db, api.SystemID); err != nil {
 			return err
 		}
@@ -110,13 +114,13 @@ func (api assureAPI) getAssureSynchro(db *gorm.DB, r string) error {
 	if err != nil {
 		return err
 	}
+	defer res.Body.Close()
 	log.Debug("Successful response to the request", r)
 	start := time.Now()
 	log.Debugf("Start transaction insert into the table CallingSys_assure_%s", r)
 	if err := insertAssureData(db, r, res.Body); err != nil {
 		return err
 	}
-	res.Body.Close()
 	log.Debugf("Successfully insert data. Elapsed time transaction %s %v", r, time.Since(start))
 	return nil
 }

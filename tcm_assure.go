@@ -33,6 +33,14 @@ func (api *assureAPI) sysID(db *gorm.DB) int {
 }
 
 func (api assureAPI) checkAuth(db *gorm.DB) bool {
+	res, err := api.newRequest("GET", api.Version, nil)
+	if err != nil {
+		return false
+	}
+	defer res.Body.Close()
+	if res.Status == "401 Unauthorized" {
+		return false
+	}
 	return true
 }
 
@@ -100,11 +108,13 @@ func (api assureAPI) buildNewTests(nit foundTest) (interface{}, error) {
 }
 
 func (api assureAPI) newRequest(method, request string, body []byte) (*http.Response, error) {
+	log.Debugf("Request %s:%s", method, api.URL+request)
 	req, err := http.NewRequest(method, api.URL+request, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
 	if method == "POST" {
+		log.Debug("Request Body:", string(body))
 		req.Header.Set("Content-Type", "text/json")
 	}
 	req.SetBasicAuth(api.User, api.Pass)
@@ -462,7 +472,7 @@ type assureSmsRoute struct {
 	ShortName              string      `json:"ShortName" gorm:"type:varchar(25)"`
 	Carrier                string      `json:"Carrier" gorm:"type:varchar(100)"`
 	SMSAdapterInstanceID   int         `json:"SMSAdapterInstanceID" gorm:"type:int"`
-	SMSAdapterInstanceName string      `json:"SMSAdapterInstanceName"`
+	SMSAdapterInstanceName string      `json:"SMSAdapterInstanceName" gorm:"type:varchar(25)"`
 	SMSRouteImportanceID   int         `json:"SMSRouteImportanceID" gorm:"type:int"`
 	SMSRouteImportanceName string      `json:"SMSRouteImportanceName" gorm:"type:varchar(25)"`
 	RouteClass             string      `json:"RouteClass" gorm:"type:varchar(25)"`

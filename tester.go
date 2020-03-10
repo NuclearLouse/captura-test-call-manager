@@ -8,6 +8,7 @@ package main
 
 import (
 	"fmt"
+	"syscall"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -16,13 +17,13 @@ import (
 )
 
 type tester interface {
+	checkAuth(*gorm.DB) bool
 	sysName(*gorm.DB) string
 	sysID(*gorm.DB) int
 	runNewTest(*gorm.DB, foundTest) error
 	runSyncro(*gorm.DB, syncAutomation) error
 	checkTestComplete(*gorm.DB, foundTest) error
 	cancelTest(*gorm.DB, string) error
-	// checkAuth(*gorm.DB) bool
 }
 
 func runService(cfg *Config, db *gorm.DB) {
@@ -42,16 +43,7 @@ func runService(cfg *Config, db *gorm.DB) {
 			continue
 		}
 		log.Info("Active test system", sysname)
-		// switch ts[i].checkAuth(db) {
-		// case true:
-		// 	if cfg.Application.PrepareRequest {
-		// 		go ts[i].prepareRequests(db, cfg.Application.IntervalPrepareTests)
-		// 	}
-		// 	go checkTestStatus(db, ts[i], cfg.Application.IntervalCheckTests)
 
-		// case false:
-		// 	log.Errorf(1, "Authentication failed! Check your internet or database connection and username or password for Test System %s", sysname)
-		// }
 		// if cfg.Application.PrepareRequest {
 		// 	go ts[i].prepareRequests(db, cfg.Application.IntervalPrepareTests)
 		// }
@@ -64,6 +56,10 @@ func runService(cfg *Config, db *gorm.DB) {
 // The main function that works at a given interval and checks for new tests
 func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 	for {
+		if !api.checkAuth(db) {
+			log.Panic(666, "Unauthorized access. Service will be stopped. Verify your username or password and start the service.")
+			sigChan <- syscall.SIGTERM
+		}
 		sysName := api.sysName(db)
 		// po="Purch_Oppt" | ps="Purch_Statuses"| ss="CallingSys_Settings"| rt="CallingSys_RouteList"
 		query := fmt.Sprintf(`SELECT po."Request_by_User",

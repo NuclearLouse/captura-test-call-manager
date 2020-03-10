@@ -33,6 +33,7 @@ const (
 )
 
 var (
+	sigChan          chan os.Signal
 	srvTmpFolder     string
 	schemaPG         string
 	dialectDB        string
@@ -137,13 +138,12 @@ func setGlobalVars(cfg *Config) {
 }
 
 func waitForSignal() {
-	sigChan := make(chan os.Signal, 1)
+	sigChan = make(chan os.Signal, 1)
 	signal.Notify(sigChan,
 		os.Interrupt,
 		syscall.SIGHUP,
 		syscall.SIGINT,
 		syscall.SIGTERM,
 		syscall.SIGQUIT)
-	s := <-sigChan
-	log.Fatal(11111, "Exit the program. Reason: got signal", s)
+	log.Fatal(11111, "Exit the program. Reason: got signal ", <-sigChan)
 }
