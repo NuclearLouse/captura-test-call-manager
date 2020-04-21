@@ -16,6 +16,7 @@ import (
 	"image/png"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -338,6 +339,12 @@ func (po *purchOppt) callsStatistic(db *gorm.DB, testid string) *purchOppt {
 	po.TestASR = 100 * complete / total
 	po.TestACD = sumcalls / complete / 60
 	po.TestMinutes = sumcalls / 60
+	if math.IsNaN(po.TestASR) {
+		po.TestASR = 0
+	}
+	if math.IsNaN(po.TestACD) {
+		po.TestACD = 0
+	}
 
 	return po
 }
