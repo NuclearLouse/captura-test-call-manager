@@ -13,7 +13,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
-	log "./logger"
+	log "captura_tcm/logger"
 )
 
 type tester interface {

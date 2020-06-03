@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"./crypter"
+	"captura_tcm/crypter"
 
 	"github.com/go-ini/ini"
 )

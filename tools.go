@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	log "./logger"
+	log "captura_tcm/logger"
 	"github.com/jinzhu/gorm"
 	"golang.org/x/image/bmp"
 	"golang.org/x/image/font"

@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	log "./logger"
+	log "captura_tcm/logger"
 
 	"github.com/jinzhu/gorm"
 )

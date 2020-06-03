@@ -11,7 +11,7 @@ import (
 	"io"
 	"time"
 
-	log "./logger"
+	log "captura_tcm/logger"
 
 	"github.com/jinzhu/gorm"
 	gormbulk "github.com/t-tiger/gorm-bulk-insert"

@@ -21,8 +21,8 @@ import (
 	"strings"
 	"syscall"
 
-	"./crypter"
-	log "./logger"
+	"captura_tcm/crypter"
+	log "captura_tcm/logger"
 )
 
 const (

@@ -5,9 +5,9 @@
 /sql
 /Synchronization/*
 /temp
+/logs
 /Tools/*
 *.exe
-*.ini
 *.db
 *.bat
 TODO.txt
