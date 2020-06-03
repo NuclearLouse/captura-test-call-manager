@@ -10,7 +10,6 @@
 *.exe
 *.db
 *.bat
-TODO.txt
 tcm.db-journal
 CaptTestCallsSrvc
 

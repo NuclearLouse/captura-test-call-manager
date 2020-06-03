@@ -59,7 +59,8 @@ func (assureAPI) newTestBnumbers(nit foundTest, nums []int64) testSetBnumbers {
 		b := batchBnumbers{
 			TestTypeName: nit.TestType,
 			RouteID:      nit.TestSysRouteID,
-			PhoneNumber:  p}
+			PhoneNumber:  p,
+		}
 
 		batches = append(batches, b)
 	}
@@ -71,10 +72,12 @@ func (assureAPI) newTestBnumbers(nit foundTest, nums []int64) testSetBnumbers {
 func (assureAPI) newTestDestination(nit foundTest) testSetDestination {
 	return testSetDestination{
 		NoOfExecutions: nit.TestCalls,
-		TestSetItems: []batchDestination{batchDestination{
-			TestTypeName:  nit.TestType,
-			RouteID:       nit.TestSysRouteID,
-			DestinationID: nit.DestinationID},
+		TestSetItems: []batchDestination{
+			{
+				TestTypeName:  nit.TestType,
+				RouteID:       nit.TestSysRouteID,
+				DestinationID: nit.DestinationID,
+			},
 		},
 	}
 }
@@ -82,10 +85,12 @@ func (assureAPI) newTestDestination(nit foundTest) testSetDestination {
 func (assureAPI) newTestSMS(nit foundTest) testSetSMS {
 	return testSetSMS{
 		NoOfExecutions: nit.TestCalls,
-		TestSetItems: []batchSMS{batchSMS{
-			SMSRouteID:      nit.TestSysRouteID, // нужен route_id для SMS
-			DestinationID:   nit.DestinationID,  // нужен destination_id для SMS
-			SMSTemplateName: nit.TestComment},   // нужен template_name
+		TestSetItems: []batchSMS{
+			{
+				SMSRouteID:      nit.TestSysRouteID, // нужен route_id для SMS
+				DestinationID:   nit.DestinationID,  // нужен destination_id для SMS
+				SMSTemplateName: nit.TestComment,
+			}, // нужен template_name
 		},
 	}
 }
