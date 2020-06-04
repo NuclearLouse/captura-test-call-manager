@@ -97,6 +97,7 @@ type purchOppt struct {
 	UserAlerted            bool      `gorm:"column:User_Alerted;default:false"`
 	CustomBNumbers         string    `gorm:"column:Custom_BNumbers;type:text"`
 	CallingSysRouteID      int       `gorm:"column:CallingSys_RouteID;type:int"`
+	SMSTemplateID          int       `gorm:"column:sms_template_id;type:int"`
 }
 
 type foundTest struct {
@@ -114,6 +115,7 @@ type foundTest struct {
 	SystemName             string
 	TestType               string
 	TestComment            string
+	SMSTemplate            string
 }
 
 func (syncAutomation) TableName() string {

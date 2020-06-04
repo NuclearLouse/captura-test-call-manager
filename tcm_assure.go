@@ -89,8 +89,8 @@ func (assureAPI) newTestSMS(nit foundTest) testSetSMS {
 			{
 				SMSRouteID:      nit.TestSysRouteID, // нужен route_id для SMS
 				DestinationID:   nit.DestinationID,  // нужен destination_id для SMS
-				SMSTemplateName: nit.TestComment,
-			}, // нужен template_name
+				SMSTemplateName: nit.SMSTemplate,
+			},
 		},
 	}
 }
@@ -185,23 +185,24 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 	ti.TestResult = result.String()
 
 	switch result.StatusID {
-	case 1, 2, 3:
+	case 1, 2, 3: // Created, Waiting, Running
 		log.Trace("Wait. The test is not over yet for test_ID", testid)
-	case 4:
+	case 4: // Finishing
 		log.Info("The end test for test_ID", testid)
 
 		var req string
-		if strings.Contains(strings.ToLower(lt.TestType), "sms") == true {
+		smstest := strings.Contains(strings.ToLower(lt.TestType), "sms")
+		if smstest {
 			// Возможны два варианта запросов для получения результатов SMS тестов:
 			//**************** 1 ********************
 			// По ID теста
 			// https://h-54-246-182-248.csg-assure.com/api/TestBatchResults/61825
-			// req = api.TestResults + result.TestBatchID
+			req = fmt.Sprintf("%s%s%d", api.URL, api.TestResults, result.TestBatchID)
 
 			//**************** 2 ********************
 			// По дате
 			// https://h-54-246-182-248.csg-assure.com/api/QueryResults2?code=Details+:+SMS+MT&From=2020-02-24&To=2020-02-24
-			req = fmt.Sprintf("%sDetails+:+SMS+MT&From=%s&To=%[2]s", api.QueryResults, time.Now().Format("2006-01-02"))
+			// req = fmt.Sprintf("%sDetails+:+SMS+MT&From=%s&To=%[2]s", api.QueryResults, time.Now().Format("2006-01-02"))
 		} else {
 			req = fmt.Sprintf("%sTest+Details+:+CLI+-+FAS+-+VQ+-+with+audio&Par1=%s", api.QueryResults, testid)
 		}
@@ -213,36 +214,55 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		}
 		log.Infof("Successful response to the request TestResults for system %s test_ID %s", api.SystemName, testid)
 
-		//! в структурe результатов теста надо добавить поля SMS
-		var callsinfo testResultAssure
-		if err := json.NewDecoder(res.Body).Decode(&callsinfo); err != nil {
-			return err
+		switch {
+		case smstest:
+			var smsinfo testResultAssureSMS
+			if err := json.NewDecoder(res.Body).Decode(&smsinfo); err != nil {
+				return err
+			}
+			res.Body.Close()
+
+			start := time.Now()
+			log.Debugf("Start transaction insert into the table SMSTestResults for system Assure test_id %s", testid)
+			if err := api.insertSMSInfo(db, smsinfo); err != nil {
+				return err
+			}
+			log.Infof("Successfully insert data from table SMSTestResults for system Assure test_ID %s", testid)
+			log.Debug("Elapsed time insert transaction", time.Since(start))
+
+			//TODO: нужна другая функция получения статистики ti.callsStatistic(db, testid)
+			ti.TestedFrom = assureParseTime(result.Created, ".")
+			ti.TestedByUser = lt.RequestByUser
+
+		default:
+			var callsinfo testResultAssure
+			if err := json.NewDecoder(res.Body).Decode(&callsinfo); err != nil {
+				return err
+			}
+			res.Body.Close()
+
+			start := time.Now()
+			log.Debugf("Start transaction insert into the table TestResults for system Assure test_id %s", testid)
+			if err := api.insertCallsInfo(db, callsinfo, lt); err != nil {
+				return err
+			}
+			log.Infof("Successfully insert data from table TestResults for system Assure test_ID %s", testid)
+			log.Debug("Elapsed time insert transaction", time.Since(start))
+
+			ti.callsStatistic(db, testid)
+			ti.TestedFrom = assureParseTime(result.Created, ".")
+			ti.TestedByUser = lt.RequestByUser
+			// statistic.TestComment = "Bla bla bla test by Assure for test_ID:" + testid
+			go api.downloadAudioFiles(db, callsinfo)
 		}
-		res.Body.Close()
 
-		start := time.Now()
-		log.Debugf("Start transaction insert into the table TestResults for system Assure test_id %s", testid)
-		//! При SMS тесте возможно надо вносить другие данные
-		if err := api.insertCallsInfo(db, callsinfo, lt); err != nil {
-			return err
-		}
-		log.Infof("Successfully insert data from table TestResults for system Assure test_ID %s", testid)
-		log.Debug("Elapsed time insert transaction", time.Since(start))
-
-		//! При SMS тесте статистику надо считать по другому, если вообще надо.
-		ti.callsStatistic(db, testid)
-		ti.TestedFrom = assureParseTime(result.Created)
-		ti.TestedByUser = lt.RequestByUser
-		// statistic.TestComment = "Bla bla bla test by Assure for test_ID:" + testid
-		//! При SMS тесте не надо загружать аудио файлы
-		go api.downloadAudioFiles(db, callsinfo)
-
-	case 0, 5, 6, 7:
+	case 0, 5, 6, 7: // Unknown, Cancelling, Cancelled, Exception
 		log.Info("Cancelled test for test_ID", testid)
 		ti.RequestState = 2
 		ti.TestedUntil = time.Now()
 		// statistic.TestComment = "Bla bla bla test by Assure for test_ID:" + testid
 	}
+
 	if err := ti.updateStatistic(db, testid); err != nil {
 		return err
 	}
@@ -340,7 +360,7 @@ func (api assureAPI) downloadAudioFiles(db *gorm.DB, tr testResultAssure) {
 
 func (assureAPI) insertCallsInfo(db *gorm.DB, tr testResultAssure, lt foundTest) error {
 	for _, res := range tr.QueryResult1 {
-		callstart := assureParseTime(res.TestStartTime)
+		callstart := assureParseTime(res.TestStartTime, ".")
 		callinfo := callingSysTestResults{
 			AudioURL:                 strconv.Itoa(res.CallResultID),
 			CallID:                   strconv.Itoa(res.CallResultID),
@@ -364,6 +384,94 @@ func (assureAPI) insertCallsInfo(db *gorm.DB, tr testResultAssure, lt foundTest)
 			FasResult:                res.Result,
 		}
 		if err := db.Create(&callinfo).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (assureAPI) insertSMSInfo(db *gorm.DB, tr testResultAssureSMS) error {
+	for _, re := range tr.TestBatchResult {
+		smsinfo := assureSMSResult{
+			CallBatchItemID:           re.CallBatchItemID,
+			CallBatchStatusTypeID:     re.CallBatchStatusTypeID,
+			CallBatchExceptionMessage: re.CallBatchExceptionMessage,
+			UITestStatusID:            re.UITestStatusID,
+			UITestStatusDisplay:       re.UITestStatusDisplay,
+			Modified:                  assureParseTime(re.Modified, "."),
+			HasAudio:                  re.HasAudio,
+			HasSecondAudio:            re.HasSecondAudio,
+			TestScenarioRuntimeUID:    re.TestScenarioRuntimeUID,
+			SMSResultID:               re.SMSResultID,
+			Result:                    re.Result,
+			Network:                   re.Network,
+			TestNode:                  re.TestNode,
+			Supplier:                  re.Supplier,
+			Route:                     re.Route,
+			SentTime:                  assureParseTime(re.SentTime, "."),
+			DelTimeOK:                 re.DelTimeOK,
+			ContentOK:                 re.ContentOK,
+			OAOK:                      re.OAOK,
+			STONOK:                    re.STONOK,
+			AlphaOK:                   re.AlphaOK,
+			DelRepOK:                  re.DelRepOK,
+			DelTimeSec:                re.DelTimeSec,
+			SMSC:                      re.SMSC,
+			SMSCOwner:                 re.SMSCOwner,
+			ErrorMsg:                  re.ErrorMsg,
+			OAS:                       re.OAS,
+			OAR:                       re.OAR,
+			STONS:                     re.STONS,
+			STONR:                     re.STONR,
+			AlphaS:                    re.AlphaS,
+			AlphaR:                    re.AlphaR,
+			SNumPlanS:                 re.SNumPlanS,
+			SNumPlanR:                 re.SNumPlanR,
+			TextS:                     re.TextS,
+			TextR:                     re.TextR,
+			NoOfSegS:                  re.NoOfSegS,
+			NoOfSegR:                  re.NoOfSegR,
+			RecTime:                   assureParseTime(re.RecTime, "."),
+			SMSCRecTime:               assureParseTime(re.SMSCRecTime, "+"),
+			DelRepTime:                assureParseTime(re.DelRepTime, "."),
+			MessageID:                 re.MessageID,
+			Template:                  re.Template,
+			SMS:                       re.SMS,
+			DeliveryDetails:           re.DeliveryDetails,
+			DelTimeLimit:              assureParseTime(re.DelTimeLimit, "."),
+			Duplicates:                re.Duplicates,
+			APIResponse:               re.APIResponse,
+			ResultRecTime:             assureParseTime(re.ResultRecTime, "."),
+			UDHS:                      re.UDHS,
+			UDHR:                      re.UDHR,
+			PDUR:                      re.PDUR,
+			ResultTrace:               re.ResultTrace,
+			ExceptionMsg:              re.ExceptionMsg,
+			CustomerID:                re.CustomerID,
+			SMSID:                     re.SMSID,
+			SMSIDExpireTime:           assureParseTime(re.SMSIDExpireTime, "."),
+			SMSTemplateID:             re.SMSTemplateID,
+			SMSTemplateModified:       re.SMSTemplateModified,
+			SubmitSMSResponseDelay:    re.SubmitSMSResponseDelay,
+			DeliveryUpdateDelay:       re.DeliveryUpdateDelay,
+			SMSReceiveDelay:           re.SMSReceiveDelay,
+			SMSResultReceiveID:        re.SMSResultReceiveID,
+			SMSResultIDR:              re.SMSResultIDR,
+			PoPIDR:                    re.PoPIDR,
+			AdapterInstanceIDR:        re.AdapterInstanceIDR,
+			AdapterInstanceNameR:      re.AdapterInstanceNameR,
+			DCSCharacterSetR:          re.DCSCharacterSetR,
+			SMR:                       re.SMR,
+			SegmentDuplicate:          re.SegmentDuplicate,
+			SMSResultSendID:           re.SMSResultSendID,
+			SMSResultIDS:              re.SMSResultIDS,
+			PoPIDS:                    re.PoPIDS,
+			AdapterInstanceIDS:        re.AdapterInstanceIDS,
+			SubmitSMSResponseTime:     assureParseTime(re.SubmitSMSResponseTime, "."),
+			StatusUpdateCode:          re.StatusUpdateCode,
+			StatusUpdateTime:          assureParseTime(re.StatusUpdateTime, "."),
+		}
+		if err := db.Create(&smsinfo).Error; err != nil {
 			return err
 		}
 	}
@@ -631,4 +739,172 @@ type batchResult struct {
 	SpeechFirstDetectedTime interface{} `json:"Speech First Detected Time"` //time.Time
 	SpeechLastDetectedTime  interface{} `json:"Speech Last Detected Time"`  //time.Time
 	APartyAudio             string      `json:"A Party Audio"`
+}
+
+type testResultAssureSMS struct {
+	TestBatchResult []batchResultSMS `json:"TestBatchResult1"`
+}
+type batchResultSMS struct {
+	CallBatchItemID           int         `json:"CallBatchItemID"`
+	CallBatchStatusTypeID     interface{} `json:"CallBatchStatusTypeID"`
+	CallBatchExceptionMessage interface{} `json:"CallBatchExceptionMessage"`
+	UITestStatusID            int         `json:"UITestStatusID"`
+	UITestStatusDisplay       string      `json:"UITestStatusDisplay"`
+	Modified                  string      `json:"Modified"`
+	HasAudio                  interface{} `json:"HasAudio"`
+	HasSecondAudio            interface{} `json:"HasSecondAudio"`
+	TestScenarioRuntimeUID    interface{} `json:"TestScenarioRuntimeUID"`
+	SMSResultID               int         `json:"SMSResultID"`
+	Result                    string      `json:"Result"`
+	Network                   string      `json:"Network"`
+	TestNode                  string      `json:"Test Node"`
+	Supplier                  string      `json:"Supplier"`
+	Route                     string      `json:"Route"`
+	SentTime                  string      `json:"Sent Time"`
+	DelTimeOK                 bool        `json:"Del. Time OK"`
+	ContentOK                 bool        `json:"Content OK"`
+	OAOK                      bool        `json:"OA OK"`
+	STONOK                    bool        `json:"S. TON OK"`
+	AlphaOK                   bool        `json:"Alpha OK"`
+	DelRepOK                  bool        `json:"Del. Rep. OK"`
+	DelTimeSec                int         `json:"Del. Time (sec)"`
+	SMSC                      string      `json:"SMSC"`
+	SMSCOwner                 string      `json:"SMSC Owner"`
+	ErrorMsg                  string      `json:"Error Msg."`
+	OAS                       string      `json:"OA (S)"`
+	OAR                       string      `json:"OA (R)"`
+	STONS                     string      `json:"S. TON (S)"`
+	STONR                     string      `json:"S. TON (R)"`
+	AlphaS                    string      `json:"Alpha (S)"`
+	AlphaR                    string      `json:"Alpha (R)"`
+	SNumPlanS                 interface{} `json:"S. Num. Plan (S)"`
+	SNumPlanR                 string      `json:"S. Num. Plan (R)"`
+	TextS                     string      `json:"Text (S)"`
+	TextR                     string      `json:"Text (R)"`
+	NoOfSegS                  int         `json:"No of Seg (S)"`
+	NoOfSegR                  int         `json:"No of Seg (R)"`
+	RecTime                   string      `json:"Rec. Time"`
+	SMSCRecTime               string      `json:"SMSC Rec. Time"`
+	DelRepTime                string      `json:"Del. Rep. Time"`
+	MessageID                 int         `json:"Message Id"`
+	Template                  string      `json:"Template"`
+	SMS                       string      `json:"SMS"`
+	DeliveryDetails           string      `json:"Delivery Details"`
+	DelTimeLimit              string      `json:"Del. Time Limit"`
+	Duplicates                int         `json:"Duplicates"`
+	APIResponse               string      `json:"API Response"`
+	ResultRecTime             string      `json:"Result Rec. Time"`
+	UDHS                      interface{} `json:"UDH (S)"`
+	UDHR                      interface{} `json:"UDH (R)"`
+	PDUR                      string      `json:"PDU (R)"`
+	ResultTrace               string      `json:"Result Trace"`
+	ExceptionMsg              interface{} `json:"Exception Msg."`
+	CustomerID                string      `json:"CustomerID"`
+	SMSID                     string      `json:"SMSID"`
+	SMSIDExpireTime           string      `json:"SMSIDExpireTime"`
+	SMSTemplateID             int         `json:"SMSTemplateID"`
+	SMSTemplateModified       interface{} `json:"SMSTemplateModified"`
+	SubmitSMSResponseDelay    float64     `json:"SubmitSMSResponseDelay"`
+	DeliveryUpdateDelay       float64     `json:"DeliveryUpdateDelay"`
+	SMSReceiveDelay           float64     `json:"SMSReceiveDelay"`
+	SMSResultReceiveID        int         `json:"SMSResultReceiveID"`
+	SMSResultIDR              int         `json:"SMSResultIDR"`
+	PoPIDR                    int         `json:"PoPIDR"`
+	AdapterInstanceIDR        int         `json:"AdapterInstanceIDR"`
+	AdapterInstanceNameR      string      `json:"AdapterInstanceNameR"`
+	DCSCharacterSetR          string      `json:"DCSCharacterSetR"`
+	SMR                       string      `json:"SMR"`
+	SegmentDuplicate          int         `json:"SegmentDuplicate"`
+	SMSResultSendID           int         `json:"SMSResultSendID"`
+	SMSResultIDS              int         `json:"SMSResultIDS"`
+	PoPIDS                    int         `json:"PoPIDS"`
+	AdapterInstanceIDS        int         `json:"AdapterInstanceIDS"`
+	AdapterInstanceNameS      string      `json:"AdapterInstanceNameS"`
+	SubmitSMSResponseTime     string      `json:"SubmitSMSResponseTime"`
+	StatusUpdateCode          string      `json:"StatusUpdateCode"`
+	StatusUpdateTime          string      `json:"StatusUpdateTime"`
+}
+
+func (assureSMSResult) TableName() string {
+	return schemaPG + "CallingSys_TestResultsAssureSMS"
+}
+
+type assureSMSResult struct {
+	CallBatchItemID           int
+	CallBatchStatusTypeID     interface{}
+	CallBatchExceptionMessage interface{}
+	UITestStatusID            int
+	UITestStatusDisplay       string
+	Modified                  time.Time
+	HasAudio                  interface{}
+	HasSecondAudio            interface{}
+	TestScenarioRuntimeUID    interface{}
+	SMSResultID               int
+	Result                    string
+	Network                   string
+	TestNode                  string
+	Supplier                  string
+	Route                     string
+	SentTime                  time.Time
+	DelTimeOK                 bool
+	ContentOK                 bool
+	OAOK                      bool
+	STONOK                    bool
+	AlphaOK                   bool
+	DelRepOK                  bool
+	DelTimeSec                int
+	SMSC                      string
+	SMSCOwner                 string
+	ErrorMsg                  string
+	OAS                       string
+	OAR                       string
+	STONS                     string
+	STONR                     string
+	AlphaS                    string
+	AlphaR                    string
+	SNumPlanS                 interface{}
+	SNumPlanR                 string
+	TextS                     string
+	TextR                     string
+	NoOfSegS                  int
+	NoOfSegR                  int
+	RecTime                   time.Time
+	SMSCRecTime               time.Time
+	DelRepTime                time.Time
+	MessageID                 int
+	Template                  string
+	SMS                       string
+	DeliveryDetails           string
+	DelTimeLimit              time.Time
+	Duplicates                int
+	APIResponse               string
+	ResultRecTime             time.Time
+	UDHS                      interface{}
+	UDHR                      interface{}
+	PDUR                      string
+	ResultTrace               string
+	ExceptionMsg              interface{}
+	CustomerID                string
+	SMSID                     string
+	SMSIDExpireTime           time.Time
+	SMSTemplateID             int
+	SMSTemplateModified       interface{}
+	SubmitSMSResponseDelay    float64
+	DeliveryUpdateDelay       float64
+	SMSReceiveDelay           float64
+	SMSResultReceiveID        int
+	SMSResultIDR              int
+	PoPIDR                    int
+	AdapterInstanceIDR        int
+	AdapterInstanceNameR      string
+	DCSCharacterSetR          string
+	SMR                       string
+	SegmentDuplicate          int
+	SMSResultSendID           int
+	SMSResultIDS              int
+	PoPIDS                    int
+	AdapterInstanceIDS        int
+	SubmitSMSResponseTime     time.Time
+	StatusUpdateCode          string
+	StatusUpdateTime          time.Time
 }

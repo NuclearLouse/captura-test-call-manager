@@ -385,12 +385,12 @@ func iTestParseTime(strTime string) time.Time {
 	return t
 }
 
-func assureParseTime(strTime string) time.Time {
+func assureParseTime(strTime, separator string) time.Time {
 	var t time.Time
 	if strTime == "" {
 		return t
 	}
-	st := strings.Split(strTime, ".")
+	st := strings.Split(strTime, separator)
 	t, _ = time.Parse("2006-01-02T15:04:05", st[0])
 	return t
 }

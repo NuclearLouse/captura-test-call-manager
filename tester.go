@@ -73,6 +73,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 		COALESCE(po."Custom_BNumbers",'') "Custom_BNumbers",
 		po."Destination",
 		COALESCE(dl.remote_destination_id, -1) remote_destination_id,
+		COALESCE(ast.name,'') sms_template_name,
 		ss."SystemID",
 		ss."SystemName",
 		ps."TestSystemCallType"
@@ -80,6 +81,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 		JOIN %[1]s"Purch_Statuses" ps ON po."Test_Type"=ps."StatusID"
 		JOIN %[1]s"CallingSys_DestinationList" dl ON po."DestinationID"=dl.captura_destination_id AND dl.callingsys_id=ps."TestSystem"
 		JOIN %[1]s"CallingSys_Settings" ss ON ss."SystemID"=ps."TestSystem"
+		JOIN %[1]s"CallingSys_assure_sms_templates" ast ON ast.sms_template_id = po.sms_template_id
 		LEFT JOIN %[1]s"CallingSys_RouteList" rt ON po."CallingSys_RouteID" = rt."RouteID" 
 		WHERE po."Tested_Until" IS NULL 
 		AND (po."TestingSystemRequestID" IS NULL OR po."TestingSystemRequestID"<>'-1') 
@@ -104,6 +106,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 				&test.BNumber,       //Custom_BNumbers
 				&test.Destination,   //Destination
 				&test.DestinationID, //remote_destination_id from CallingSys_DestinationList
+				&test.SMSTemplate,
 				&test.SystemID,      //SystemID from CallingSys_Settings
 				&test.SystemName,    //SystemName from CallingSys_Settings
 				&test.TestType)      //TestSystemCallType from Purch_Statuses
