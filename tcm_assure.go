@@ -156,7 +156,7 @@ func (api assureAPI) runNewTest(db *gorm.DB, nit foundTest) error {
 	}
 
 	testinfo := purchOppt{
-		TestResult:             "Initiated",
+		TestResult:             newTests.String(),
 		TestingSystemRequestID: strconv.Itoa(newTests.TestBatchID),
 		RequestState:           2}
 	if err := testinfo.updateTestInfo(db, nit.RequestID); err != nil {
@@ -224,13 +224,13 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 
 			start := time.Now()
 			log.Debugf("Start transaction insert into the table SMSTestResults for system Assure test_id %s", testid)
-			if err := api.insertSMSInfo(db, smsinfo); err != nil {
+			if err := api.insertSMSInfo(db, smsinfo, testid); err != nil {
 				return err
 			}
 			log.Infof("Successfully insert data from table SMSTestResults for system Assure test_ID %s", testid)
 			log.Debug("Elapsed time insert transaction", time.Since(start))
 
-			//TODO: нужна другая функция получения статистики ti.callsStatistic(db, testid)
+			ti.smsStatisticsAssure(db, testid)
 			ti.TestedFrom = assureParseTime(result.Created, ".")
 			ti.TestedByUser = lt.RequestByUser
 
@@ -252,7 +252,6 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			ti.callsStatistic(db, testid)
 			ti.TestedFrom = assureParseTime(result.Created, ".")
 			ti.TestedByUser = lt.RequestByUser
-			// statistic.TestComment = "Bla bla bla test by Assure for test_ID:" + testid
 			go api.downloadAudioFiles(db, callsinfo)
 		}
 
@@ -260,7 +259,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 		log.Info("Cancelled test for test_ID", testid)
 		ti.RequestState = 2
 		ti.TestedUntil = time.Now()
-		// statistic.TestComment = "Bla bla bla test by Assure for test_ID:" + testid
+		ti.TestComment = "The test ended with status:" + result.String()
 	}
 
 	if err := ti.updateStatistic(db, testid); err != nil {
@@ -374,7 +373,7 @@ func (assureAPI) insertCallsInfo(db *gorm.DB, tr testResultAssure, lt foundTest)
 			AlertTime:                res.BAlertTime,
 			ConnectTime:              res.BConnectTime,
 			BNumber:                  res.Bnumber,
-			Route:                    res.Route, // or lt.RouteCarrier
+			Route:                    res.Route,
 			Status:                   res.ReleaseCause,
 			CliDetectedCallingNumber: res.CLIDelivered,
 			CliResult:                res.Result,
@@ -390,9 +389,10 @@ func (assureAPI) insertCallsInfo(db *gorm.DB, tr testResultAssure, lt foundTest)
 	return nil
 }
 
-func (assureAPI) insertSMSInfo(db *gorm.DB, tr testResultAssureSMS) error {
+func (assureAPI) insertSMSInfo(db *gorm.DB, tr testResultAssureSMS, testID string) error {
 	for _, re := range tr.TestBatchResult {
 		smsinfo := assureSMSResult{
+			TestBatchID:               testID,
 			CallBatchItemID:           re.CallBatchItemID,
 			CallBatchStatusTypeID:     re.CallBatchStatusTypeID,
 			CallBatchExceptionMessage: re.CallBatchExceptionMessage,
@@ -830,6 +830,7 @@ func (assureSMSResult) TableName() string {
 }
 
 type assureSMSResult struct {
+	TestBatchID               string
 	CallBatchItemID           int
 	CallBatchStatusTypeID     interface{}
 	CallBatchExceptionMessage interface{}

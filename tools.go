@@ -25,6 +25,7 @@ import (
 	"time"
 
 	log "captura_tcm/logger"
+
 	"github.com/jinzhu/gorm"
 	"golang.org/x/image/bmp"
 	"golang.org/x/image/font"
@@ -318,7 +319,7 @@ func labelEmptyBMP(label string) []byte {
 // find the end time of the last call MAX("CallComplete")
 // Counting the number of calls with a duration> 0,
 // and summarize the total duration of these calls
-func (po *purchOppt) callsStatistic(db *gorm.DB, testid string) *purchOppt {
+func (po *purchOppt) callsStatistic(db *gorm.DB, testid string) {
 	var total, complete, sumcalls float64
 	var max time.Time
 	db.Model(&callingSysTestResults{}).
@@ -345,8 +346,20 @@ func (po *purchOppt) callsStatistic(db *gorm.DB, testid string) *purchOppt {
 	if math.IsNaN(po.TestACD) {
 		po.TestACD = 0
 	}
+}
 
-	return po
+func (po *purchOppt) smsStatisticsAssure(db *gorm.DB, testid string) {
+	var max time.Time
+	db.Model(&assureSMSResult{}).
+		Where("test_batch_id", testid).
+		Select("MAX(del_time_limit)").
+		Row().
+		Scan(&max)
+	po.RequestState = 2
+	po.TestedUntil = max
+	po.TestASR = 0
+	po.TestACD = 0
+	po.TestMinutes = 0
 }
 
 // The function updates the information in the Purch_Oppt table about the running test.
