@@ -24,6 +24,7 @@ type tester interface {
 	runSyncro(*gorm.DB, syncAutomation) error
 	checkTestComplete(*gorm.DB, foundTest) error
 	cancelTest(*gorm.DB, string) error
+	prepareRequests(*gorm.DB, int64)
 }
 
 func runService(cfg *Config, db *gorm.DB) {
@@ -44,9 +45,9 @@ func runService(cfg *Config, db *gorm.DB) {
 		}
 		log.Info("Active test system", sysname)
 
-		// if cfg.Application.PrepareRequest {
-		// 	go ts[i].prepareRequests(db, cfg.Application.IntervalPrepareTests)
-		// }
+		if cfg.Application.PrepareRequest {
+			go ts[i].prepareRequests(db, cfg.Application.IntervalPrepare)
+		}
 		go checkNewSync(db, ts[i], cfg.Application.IntervalCheckSyncro)
 		go checkTestStatus(db, ts[i], cfg.Application.IntervalCheckTests)
 

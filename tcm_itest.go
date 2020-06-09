@@ -18,7 +18,10 @@ import (
 
 	log "captura_tcm/logger"
 
+	"github.com/mitchellh/mapstructure"
+
 	"github.com/jinzhu/gorm"
+	gormbulk "github.com/t-tiger/gorm-bulk-insert"
 )
 
 func (api *itestAPI) sysName(db *gorm.DB) string {
@@ -54,6 +57,148 @@ func (api itestAPI) parseBNumbers(customBNumbers string) (nums string) {
 func (api itestAPI) cancelTest(db *gorm.DB, testid string) error {
 	log.Debugf("Sending a request Cancel Test for system %s and test_id %s", api.SystemName, testid)
 
+	return nil
+}
+
+func (api itestAPI) prepareRequests(db *gorm.DB, interval int64) {
+	for {
+		log.Info("Send preparatory requests for", api.SystemName)
+		log.Debug("API Settings", api)
+		httpRequests := map[string]int{
+			"itest_profiles":      api.Profiles,
+			"itest_suppliers":     api.Suppliers,
+			"itest_breakouts_std": api.NdbStd,
+			"itest_breakouts_cli": api.NdbCli,
+		}
+		keys := make([]string, 0)
+		for key := range httpRequests {
+			keys = append(keys, key)
+		}
+		for i := range keys {
+			var err error
+			req := fmt.Sprintf("%s?t=%d", api.URL, httpRequests[keys[i]])
+			res, err := api.requestPOST(req)
+			// log.Debug("Prepare response", response)
+			if err != nil {
+				log.Errorf(500, "Failed to get a response to the request %s|%v", keys[i], err)
+				continue
+			}
+			log.Info("Successful response to the request", keys[i])
+			start := time.Now()
+			log.Debug("Start transaction insert into the table", keys[i])
+			if err := insertsPrepareXML(db, keys[i], res); err != nil {
+				log.Errorf(501, "Could not insert data from response %s|%v", keys[i], err)
+				continue
+			}
+			log.Info("Successfully insert data from response", keys[i])
+			log.Debugf("Elapsed time transaction insert %s %v", keys[i], time.Since(start))
+		}
+		log.Infof("The next data update to prepare %s after %d hours", api.SystemName, interval)
+		time.Sleep(time.Duration(interval) * time.Hour)
+	}
+
+}
+
+func insertsPrepareXML(db *gorm.DB, req string, res *http.Response) error {
+	decoder := xmlNewDecoder(res)
+	tx := db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	if err := tx.Error; err != nil {
+		return err
+	}
+	var bulkslice []interface{}
+	switch req {
+	case "itest_profiles":
+		var profile itestProfiles
+		var profiles ProfilesList
+		if err := db.Delete(itestProfiles{}).Error; err != nil {
+			return err
+		}
+		log.Debug("Successeful truncate table", profile.TableName())
+		if err := decoder.Decode(&profiles); err != nil {
+			return err
+		}
+		for i := range profiles.Profiles {
+			if err := mapstructure.Decode(profiles.Profiles[i], &profile); err != nil {
+				return err
+			}
+			if dialectDB == "sqlite3" {
+				if err := tx.Create(&profile).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+			bulkslice = append(bulkslice, profile)
+		}
+	case "itest_suppliers":
+		var supplier itestSuppliers
+		var suppliers SuppliersList
+		if err := db.Delete(itestSuppliers{}).Error; err != nil {
+			return err
+		}
+		log.Debug("Successeful truncate table", supplier.TableName())
+		if err := decoder.Decode(&suppliers); err != nil {
+			return err
+		}
+		for i := range suppliers.Suppliers {
+			if err := mapstructure.Decode(suppliers.Suppliers[i], &supplier); err != nil {
+				return err
+			}
+			s := &supplier
+			pref := strings.Split(s.Prefix, "#")
+			s.Prefix = pref[0]
+			if dialectDB == "sqlite3" {
+				if err := tx.Create(&supplier).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+			bulkslice = append(bulkslice, supplier)
+		}
+	default:
+		var breakout itestBreakouts
+		var ndblist ListNDB
+		switch req {
+		case "itest_breakouts_std":
+			breakout = itestBreakouts{BreakType: "std"}
+		case "itest_breakouts_cli":
+			breakout = itestBreakouts{BreakType: "cli"}
+		}
+		if err := db.Table(breakout.TableName()).Delete(itestBreakouts{}).Error; err != nil {
+			return err
+		}
+		log.Debug("Successeful truncate table", breakout.TableName())
+		if err := decoder.Decode(&ndblist); err != nil {
+			return err
+		}
+		for i := range ndblist.Breakouts {
+			if err := mapstructure.Decode(ndblist.Breakouts[i], &breakout); err != nil {
+				return err
+			}
+			if dialectDB == "sqlite3" {
+				if err := tx.Create(&breakout).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+			bulkslice = append(bulkslice, breakout)
+		}
+	}
+	switch dialectDB {
+	case "sqlite3":
+		err := tx.Commit().Error
+		if err != nil {
+			return err
+		}
+	default:
+		if err := gormbulk.BulkInsert(db, bulkslice, 3000); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -421,3 +566,89 @@ type testResultItest struct {
 		FDLR        string  `xml:"F-DLR"`
 	} `xml:"Call"`
 }
+
+// ListNDB ...
+type ListNDB struct {
+	XMLName   xml.Name   `xml:"NDB_List"`
+	Breakouts []breakout `xml:"Breakout"`
+}
+
+type breakout struct {
+	XMLName      xml.Name `xml:"Breakout"`
+	CountryName  string   `xml:"Country_Name"`
+	CountryID    string   `xml:"Country_ID"`
+	BreakoutName string   `xml:"Breakout_Name"`
+	BreakoutID   string   `xml:"Breakout_ID"`
+}
+
+// ProfilesList ...
+type ProfilesList struct {
+	XMLName  xml.Name  `xml:"Profiles_List"`
+	Profiles []profile `xml:"Profile"`
+}
+
+type profile struct {
+	XMLName          xml.Name `xml:"Profile"`
+	ProfileID        string   `xml:"Profile_ID"`
+	ProfileName      string   `xml:"Profile_Name"`
+	ProfileIP        string   `xml:"Profile_IP"`
+	ProfilePort      string   `xml:"Profile_Port"`
+	ProfileSrcNumber string   `xml:"Profile_Src_Number"`
+}
+
+// SuppliersList ....
+type SuppliersList struct {
+	XMLName   xml.Name   `xml:"Vendors_List"`
+	Suppliers []supplier `xml:"Supplier"`
+}
+
+type supplier struct {
+	XMLName      xml.Name `xml:"Supplier"`
+	SupplierID   string   `xml:"Supplier_ID"`
+	SupplierName string   `xml:"Supplier_Name"`
+	Prefix       string   `xml:"Prefix"`
+	Codec        string   `xml:"Codec"`
+}
+
+func (itestProfiles) TableName() string {
+	return schemaPG + "CallingSys_iTest_profiles"
+}
+
+type itestProfiles struct {
+	ProfileID        string `gorm:"column:profile_id;size:100"`
+	ProfileName      string `gorm:"column:profile_name;size:100"`
+	ProfileIP        string `gorm:"column:profile_ip;size:100"`
+	ProfilePort      string `gorm:"column:profile_port;size:100"`
+	ProfileSrcNumber string `gorm:"column:profile_src_number;size:100"`
+}
+
+func (itestSuppliers) TableName() string {
+	return schemaPG + "CallingSys_iTest_suppliers"
+}
+
+type itestSuppliers struct {
+	SupplierID   string `gorm:"column:supplier_id;size:100"`
+	SupplierName string `gorm:"column:supplier_name;size:100"`
+	Prefix       string `gorm:"column:prefix;size:100"`
+	Codec        string `gorm:"column:codec;size:100"`
+}
+
+func (b itestBreakouts) TableName() string {
+	var name string
+	switch b.BreakType {
+	case "cli":
+		name = schemaPG + "CallingSys_iTest_breakouts_cli"
+	case "std":
+		name = schemaPG + "CallingSys_iTest_breakouts_std"
+	}
+	return name
+}
+
+type itestBreakouts struct {
+	CountryName  string `gorm:"column:country_name;size:100"`
+	CountryID    string `gorm:"column:country_id;size:100"`
+	BreakoutName string `gorm:"column:breakout_name;size:100"`
+	BreakoutID   string `gorm:"column:breakout_id;size:100"`
+	BreakType    string `gorm:"-"`
+}
+

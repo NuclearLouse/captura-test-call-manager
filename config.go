@@ -16,6 +16,8 @@ type Config struct {
 		IntervalDeleteTests int64  `ini:"delete_old_tests"`
 		IntervalCheckTests  int64  `ini:"check_tests"`
 		IntervalCheckSyncro int64  `ini:"check_syncro"`
+		PrepareRequest      bool   `ini:"prepare_srvc"`
+		IntervalPrepare     int64  `ini:"prepare_interval"`
 	} `ini:"application"`
 	Logger struct {
 		LogPath  string `ini:"log_path"`

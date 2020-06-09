@@ -36,6 +36,16 @@ func (api netSenseAPI) checkAuth(db *gorm.DB) bool {
 	return true
 }
 
+func (api netSenseAPI) prepareRequests(db *gorm.DB, interval int64) {
+	log.Info("Send preparatory requests for", api.SystemName)
+	log.Debug("API Settings", api)
+	for {
+		log.Infof("The next data update to prepare %s after %d hours", api.SystemName, interval)
+		time.Sleep(time.Duration(interval) * time.Hour)
+	}
+
+}
+
 func (api netSenseAPI) newRequest(method, request string, body []byte) (*http.Response, error) {
 	req, err := http.NewRequest(method, api.URL+request, bytes.NewBuffer(body))
 	if err != nil {
@@ -711,3 +721,4 @@ type testResultNetsense struct {
 		Message string `xml:"message"`
 	} `xml:"status"`
 }
+
