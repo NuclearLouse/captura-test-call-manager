@@ -536,9 +536,9 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 	var bulkslice []interface{}
 	switch req {
 	case "assure_routes":
-		var route assureRoutes // table's struct
-		var routes Routes      // JSON's struct
-		if err := db.Delete(assureRoutes{}).Error; err != nil {
+		var route assureRoute // table's struct
+		var routes routes      // JSON's struct
+		if err := db.Delete(assureRoute{}).Error; err != nil {
 			return err
 		}
 		log.Debug("Successeful truncate table", route.TableName())
@@ -558,9 +558,9 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 			bulkslice = append(bulkslice, route)
 		}
 	case "assure_destinations":
-		var destination assureDestinations
-		var destinations Destinations
-		if err := db.Delete(assureDestinations{}).Error; err != nil {
+		var destination assureDestination
+		var destinations destinations
+		if err := db.Delete(assureDestination{}).Error; err != nil {
 			return err
 		}
 		log.Debug("Successeful truncate table", destination.TableName())
@@ -581,16 +581,16 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 		}
 	case "assure_nodes":
 		var node assureNodes
-		var nodes Nodes
+		var nods nodes
 		if err := db.Delete(assureNodes{}).Error; err != nil {
 			return err
 		}
 		log.Debug("Successeful truncate table", node.TableName())
-		if err := json.Unmarshal(body, &nodes); err != nil {
+		if err := json.Unmarshal(body, &nods); err != nil {
 			return err
 		}
-		for i := range nodes.QueryResult1 {
-			if err := mapstructure.Decode(nodes.QueryResult1[i], &node); err != nil {
+		for i := range nods.QueryResult1 {
+			if err := mapstructure.Decode(nods.QueryResult1[i], &node); err != nil {
 				return err
 			}
 			if dialectDB == "sqlite3" {
@@ -603,7 +603,7 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 		}
 	case "assure_nodes_capabilities":
 		var node assureNodesCapabilities
-		var nodes NodeCapabilities
+		var nodes nodeCapabilities
 		if err := db.Delete(assureNodesCapabilities{}).Error; err != nil {
 			return err
 		}
@@ -624,9 +624,9 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 			bulkslice = append(bulkslice, node)
 		}
 	case "assure_sms_routes":
-		var route smsRoute
-		var routes SMSRoutes
-		if err := db.Delete(smsRoute{}).Error; err != nil {
+		var route assureSmsRoute
+		var routes smsRoutes
+		if err := db.Delete(assureSmsRoute{}).Error; err != nil {
 			return err
 		}
 		log.Debug("Successeful truncate table", route.TableName())
@@ -646,9 +646,9 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 			bulkslice = append(bulkslice, route)
 		}
 	case "assure_sms_templates":
-		var template smsTemplate
-		var templates SMSTemplates
-		if err := db.Delete(smsRoute{}).Error; err != nil {
+		var template assureSmsTemplate
+		var templates smsTemplates
+		if err := db.Delete(assureSmsTemplate{}).Error; err != nil {
 			return err
 		}
 		log.Debug("Successeful truncate table", template.TableName())
@@ -771,6 +771,73 @@ type assureRoute struct {
 	ShortName              string      `json:"ShortName" gorm:"type:varchar(100)"`
 	SwitchID               int         `json:"SwitchID" gorm:"type:int"`
 	SwitchName             string      `json:"SwitchName" gorm:"type:varchar(100)"`
+}
+
+
+type nodes struct {
+	QueryResult1 []assureNodes
+}
+
+func (assureNodes) TableName() string {
+	return schemaPG + "CallingSys_assure_nodes"
+}
+
+type assureNodes struct {
+	APartyCallParameter     string `gorm:"size:150"`
+	APartyCustomNumberMRule string `gorm:"size:100"`
+	APartyNumberMRule       string `gorm:"size:150"`
+	CallParameter           string `gorm:"size:100"`
+	ChannelProperties       string `gorm:"size:100"`
+	Created                 string `gorm:"size:100"`
+	CreatedBy               int    `gorm:"type:int"`
+	Description             string `gorm:"size:100"`
+	DisplayName             string `gorm:"size:100"`
+	EquipmentID             int    `gorm:"type:int"`
+	EquipmentName           string `gorm:"size:100"`
+	HomePLMN                string `gorm:"size:100"`
+	IMEI                    string `gorm:"size:100"`
+	InternalComment         string `gorm:"size:100"`
+	IsSynchronized          bool   `gorm:"type:boolean"`
+	ModeID                  int    `gorm:"type:int"`
+	Modified                string `gorm:"size:100"`
+	ModifiedBy              int    `gorm:"type:int"`
+	ModifiedUTC             string `gorm:"size:100"`
+	Name                    string `gorm:"size:100"`
+	NetworkAndTestNodeName  string `gorm:"size:150"`
+	NetworkName             string `gorm:"size:100"`
+	NoNumberName            string `gorm:"size:100"`
+	NoOfChannels            int    `gorm:"type:int"`
+	PLMN                    string `gorm:"size:100"`
+	PhoneNumber             string `gorm:"type:text"`
+	PhoneNumberFirstPart    string `gorm:"size:100"`
+	PhoneNumberIsEncrypted  bool   `gorm:"type:boolean"`
+	ProbeContainerUID       string `gorm:"size:150"`
+	RTDThreshold            string `gorm:"size:100"`
+	TestNodeDirectoryID     int    `gorm:"type:int"`
+	TestNodeDirectoryName   string `gorm:"size:100"`
+	TestNodeID              int    `gorm:"type:int"`
+	TestNodeUID             string `gorm:"size:150"`
+}
+
+type nodeCapabilities struct {
+	QueryResult1 []assureNodesCapabilities
+}
+
+func (assureNodesCapabilities) TableName() string {
+	return schemaPG + "CallingSys_assure_nodes_capabilities"
+}
+
+type assureNodesCapabilities struct {
+	AAPoPID          int    `gorm:"type:int"`
+	TestTypeName     string `gorm:"size:100"`
+	DestinationIntID int    `gorm:"type:int"`
+	DestinationID    string `gorm:"size:100"`
+	DestinationName  string `gorm:"size:100"`
+	TestNodeIntID    int    `gorm:"type:int"`
+	TestNodeIntUID   string `gorm:"size:100"`
+	TestNodeName     string `gorm:"size:100"`
+	NetworkName      string `gorm:"size:100"`
+	IsAParty         int    `gorm:"type:int"`
 }
 
 type smsRoutes struct {
@@ -1112,325 +1179,4 @@ type assureSMSResult struct {
 	SubmitSMSResponseTime     time.Time
 	StatusUpdateCode          string
 	StatusUpdateTime          time.Time
-}
-
-// Destinations ...
-type Destinations struct {
-	QueryResult1 []destination
-}
-
-type destination struct {
-	CountryID                 int    `json:"CountryID"`
-	CountryName               string `json:"CountryName"`
-	Created                   string `json:"Created"`
-	CreatedBy                 int    `json:"CreatedBy"`
-	DestinationCategoryID     int    `json:"DestinationCategoryID"`
-	DestinationCategoryName   string `json:"DestinationCategoryName"`
-	DestinationExtID          string `json:"DestinationExtID"`
-	DestinationID             int    `json:"DestinationID"`
-	DestinationImportanceID   int    `json:"DestinationImportanceID"`
-	DestinationImportanceName string `json:"DestinationImportanceName"`
-	Modified                  string `json:"Modified"`
-	ModifiedBy                int    `json:"ModifiedBy"`
-	Name                      string `json:"Name"`
-	PoPID                     int    `json:"PoPID"`
-	ShortName                 string `json:"ShortName"`
-}
-
-// Routes ...
-type Routes struct {
-	QueryResult1 []route
-}
-
-type route struct {
-	Active                 bool        `json:"Active"`
-	CallParameter          interface{} `json:"CallParameter"`
-	Carrier                string      `json:"Carrier"`
-	CarrierID              interface{} `json:"CarrierID"`
-	Channel                int         `json:"Channel"`
-	ChannelPoolID          int         `json:"ChannelPoolID"`
-	ChannelPoolName        string      `json:"ChannelPoolName"`
-	Created                string      `json:"Created"`
-	CreatedBy              int         `json:"CreatedBy"`
-	Description            interface{} `json:"Description"`
-	DialerName             string      `json:"DialerName"`
-	ExtRouteID             interface{} `json:"ExtRouteID"`
-	IsMainProduct          interface{} `json:"IsMainProduct"`
-	Modified               string      `json:"Modified"`
-	ModifiedBy             int         `json:"ModifiedBy"`
-	Name                   string      `json:"Name"`
-	NumberManipulationRule interface{} `json:"NumberManipulationRule"`
-	PoPID                  int         `json:"PoPID"`
-	Prefix                 string      `json:"Prefix"`
-	RouteClass             string      `json:"RouteClass"`
-	RouteID                int         `json:"RouteID"`
-	RouteImportanceID      int         `json:"RouteImportanceID"`
-	RouteImportanceName    string      `json:"RouteImportanceName"`
-	RouteTypeID            interface{} `json:"RouteTypeID"`
-	RouteTypeName          interface{} `json:"RouteTypeName"`
-	ShortName              string      `json:"ShortName"`
-	SwitchID               int         `json:"SwitchID"`
-	SwitchName             string      `json:"SwitchName"`
-}
-
-// Nodes ...
-type Nodes struct {
-	QueryResult1 []node
-}
-
-type node struct {
-	APartyCallParameter     interface{} `json:"APartyCallParameter"`
-	APartyCustomNumberMRule interface{} `json:"APartyCustomNumberMRule"`
-	APartyNumberMRule       string      `json:"APartyNumberMRule"`
-	CallParameter           interface{} `json:"CallParameter"`
-	ChannelProperties       string      `json:"ChannelProperties"`
-	Created                 string      `json:"Created"`
-	CreatedBy               int         `json:"CreatedBy"`
-	Description             string      `json:"Description"`
-	DisplayName             string      `json:"DisplayName"`
-	EquipmentID             int         `json:"EquipmentID"`
-	EquipmentName           string      `json:"EquipmentName"`
-	HomePLMN                string      `json:"HomePLMN"`
-	IMEI                    interface{} `json:"IMEI"`
-	InternalComment         interface{} `json:"InternalComment"`
-	IsSynchronized          bool        `json:"IsSynchronized"`
-	ModeID                  int         `json:"ModeID"`
-	Modified                string      `json:"Modified"`
-	ModifiedBy              int         `json:"ModifiedBy"`
-	ModifiedUTC             string      `json:"ModifiedUTC"`
-	Name                    string      `json:"Name"`
-	NetworkAndTestNodeName  string      `json:"NetworkAndTestNodeName"`
-	NetworkName             string      `json:"NetworkName"`
-	NoNumberName            string      `json:"NoNumberName"`
-	NoOfChannels            int         `json:"NoOfChannels"`
-	PLMN                    string      `json:"PLMN"`
-	PhoneNumber             string      `json:"PhoneNumber"`
-	PhoneNumberFirstPart    string      `json:"PhoneNumberFirstPart"`
-	PhoneNumberIsEncrypted  bool        `json:"PhoneNumberIsEncrypted"`
-	ProbeContainerUID       string      `json:"ProbeContainerUID"`
-	RTDThreshold            interface{} `json:"RTDThreshold"`
-	TestNodeDirectoryID     int         `json:"TestNodeDirectoryID"`
-	TestNodeDirectoryName   string      `json:"TestNodeDirectoryName"`
-	TestNodeID              int         `json:"TestNodeID"`
-	TestNodeUID             string      `json:"TestNodeUID"`
-}
-
-// NodeCapabilities ...
-type NodeCapabilities struct {
-	QueryResult1 []nodeCap
-}
-
-type nodeCap struct {
-	AAPoPID          int         `json:"AAPoPID"`
-	DestinationID    interface{} `json:"DestinationID"`
-	DestinationIntID int         `json:"DestinationIntID"`
-	DestinationName  string      `json:"DestinationName"`
-	IsAParty         int         `json:"IsAParty"`
-	NetworkName      string      `json:"NetworkName"`
-	TestNodeIntID    int         `json:"TestNodeIntID"`
-	TestNodeIntUID   string      `json:"TestNodeIntUID"`
-	TestNodeName     string      `json:"TestNodeName"`
-	TestTypeName     string      `json:"TestTypeName"`
-}
-
-// NodeStatuses ...
-type NodeStatuses struct {
-	QueryResult1 []nodeStatus
-}
-
-type nodeStatus struct {
-	CountryName           string `json:"CountryName"`
-	Description           string `json:"Description"`
-	DestinationName       string `json:"DestinationName"`
-	EquipmentID           int    `json:"EquipmentID"`
-	EquipmentName         string `json:"EquipmentName"`
-	GSMStatusChanged      string `json:"GSMStatusChanged"`
-	GSMStatusID           int    `json:"GSMStatusID"`
-	GSMStatusText         string `json:"GSMStatusText"`
-	IPStatusChanged       string `json:"IPStatusChanged"`
-	IPStatusID            int    `json:"IPStatusID"`
-	IPStatusText          string `json:"IPStatusText"`
-	Name                  string `json:"Name"`
-	NetworkName           string `json:"NetworkName"`
-	PoPID                 int    `json:"PoPID"`
-	PoPName               string `json:"PoPName"`
-	RegionName            string `json:"RegionName"`
-	TestNodeDirectoryID   int    `json:"TestNodeDirectoryID"`
-	TestNodeDirectoryName string `json:"TestNodeDirectoryName"`
-	TestNodeID            int    `json:"TestNodeID"`
-	TestNodeStatusID      int    `json:"TestNodeStatusID"`
-	TestNodeUID           string `json:"TestNodeUID"`
-}
-
-// SMSRoutes ...
-type SMSRoutes struct {
-	QueryResult1 []smsRoute
-}
-
-func (smsRoute) TableName() string {
-	return schemaPG + "CallingSys_assure_sms_routes"
-}
-
-type smsRoute struct {
-	Active                 bool        `json:"Active"`
-	Carrier                string      `json:"Carrier"`
-	Created                string      `json:"Created"`
-	CreatedBy              int         `json:"CreatedBy"`
-	Description            interface{} `json:"Description"`
-	IsMainProduct          interface{} `json:"IsMainProduct"`
-	Modified               string      `json:"Modified"`
-	ModifiedBy             int         `json:"ModifiedBy"`
-	Name                   string      `json:"Name"`
-	NumberManipulationRule interface{} `json:"NumberManipulationRule"`
-	PoPID                  int         `json:"PoPID"`
-	RouteClass             string      `json:"RouteClass"`
-	RouteTypeID            interface{} `json:"RouteTypeID"`
-	RouteTypeName          interface{} `json:"RouteTypeName"`
-	SMSAdapterInstanceID   int         `json:"SMSAdapterInstanceID"`
-	SMSAdapterInstanceName string      `json:"SMSAdapterInstanceName"`
-	SMSRouteExtID          interface{} `json:"SMSRouteExtID"`
-	SMSRouteID             int         `json:"SMSRouteID"`
-	SMSRouteImportanceID   int         `json:"SMSRouteImportanceID"`
-	SMSRouteImportanceName string      `json:"SMSRouteImportanceName"`
-	SMSRouteProperties     string      `json:"SMSRouteProperties"`
-	ShortName              string      `json:"ShortName"`
-}
-
-// SMSTemplates ...
-type SMSTemplates struct {
-	QueryResult1 []smsTemplate
-}
-
-func (smsTemplate) TableName() string {
-	return schemaPG + "CallingSys_assure_sms_templates"
-}
-
-type smsTemplate struct {
-	Created                 string      `json:"Created"`
-	CreatedBy               int         `json:"CreatedBy"`
-	Description             interface{} `json:"Description"`
-	Modified                string      `json:"Modified"`
-	ModifiedBy              int         `json:"ModifiedBy"`
-	Name                    string      `json:"Name"`
-	PoPID                   int         `json:"PoPID"`
-	SMSAdapaterInstanceName string      `json:"SMSAdapaterInstanceName"`
-	SMSAdapterInstanceID    int         `json:"SMSAdapterInstanceID"`
-	SMSTemplateID           int         `json:"SMSTemplateID"`
-	TestTypeID              int         `json:"TestTypeID"`
-	TestTypeName            string      `json:"TestTypeName"`
-}
-
-func (assureRoutes) TableName() string {
-	return schemaPG + "CallingSys_assure_routes"
-}
-
-type assureRoutes struct {
-	Active                 bool   `gorm:"type:boolean"`
-	CallParameter          string `gorm:"size:100"`
-	Carrier                string `gorm:"size:100"`
-	CarrierID              string `gorm:"size:100"`
-	Channel                int    `gorm:"type:int"`
-	ChannelPoolID          int    `gorm:"type:int"`
-	ChannelPoolName        string `gorm:"size:100"`
-	Created                string `gorm:"size:100"`
-	CreatedBy              int    `gorm:"type:int"`
-	Description            string `gorm:"size:100"`
-	DialerName             string `gorm:"size:100"`
-	ExtRouteID             string `gorm:"size:100"`
-	IsMainProduct          string `gorm:"size:100"`
-	Modified               string `gorm:"size:100"`
-	ModifiedBy             int    `gorm:"type:int"`
-	Name                   string `gorm:"size:100"`
-	NumberManipulationRule string `gorm:"size:100"`
-	PoPID                  int    `gorm:"type:int"`
-	Prefix                 string `gorm:"size:100"`
-	RouteClass             string `gorm:"size:100"`
-	RouteID                int    `gorm:"type:int"`
-	RouteImportanceID      int    `gorm:"type:int"`
-	RouteImportanceName    string `gorm:"size:100"`
-	RouteTypeID            string `gorm:"size:100"`
-	RouteTypeName          string `gorm:"size:100"`
-	ShortName              string `gorm:"size:100"`
-	SwitchID               int    `gorm:"type:int"`
-	SwitchName             string `gorm:"size:100"`
-}
-
-func (assureDestinations) TableName() string {
-	return schemaPG + "CallingSys_assure_destinations"
-}
-
-type assureDestinations struct {
-	CountryID                 int    `gorm:"type:int"`
-	CountryName               string `gorm:"size:100"`
-	Created                   string `gorm:"size:100"`
-	CreatedBy                 int    `gorm:"type:int"`
-	DestinationCategoryID     int    `gorm:"type:int"`
-	DestinationCategoryName   string `gorm:"size:100"`
-	DestinationExtID          string `gorm:"size:100"`
-	DestinationID             int    `gorm:"type:int"`
-	DestinationImportanceID   int    `gorm:"type:int"`
-	DestinationImportanceName string `gorm:"size:100"`
-	Modified                  string `gorm:"size:100"`
-	ModifiedBy                int    `gorm:"type:int"`
-	Name                      string `gorm:"size:100"`
-	PoPID                     int    `gorm:"size:100"`
-	ShortName                 string `gorm:"size:100"`
-}
-
-func (assureNodes) TableName() string {
-	return schemaPG + "CallingSys_assure_nodes"
-}
-
-type assureNodes struct {
-	APartyCallParameter     string `gorm:"size:150"`
-	APartyCustomNumberMRule string `gorm:"size:100"`
-	APartyNumberMRule       string `gorm:"size:150"`
-	CallParameter           string `gorm:"size:100"`
-	ChannelProperties       string `gorm:"size:100"`
-	Created                 string `gorm:"size:100"`
-	CreatedBy               int    `gorm:"type:int"`
-	Description             string `gorm:"size:100"`
-	DisplayName             string `gorm:"size:100"`
-	EquipmentID             int    `gorm:"type:int"`
-	EquipmentName           string `gorm:"size:100"`
-	HomePLMN                string `gorm:"size:100"`
-	IMEI                    string `gorm:"size:100"`
-	InternalComment         string `gorm:"size:100"`
-	IsSynchronized          bool   `gorm:"type:boolean"`
-	ModeID                  int    `gorm:"type:int"`
-	Modified                string `gorm:"size:100"`
-	ModifiedBy              int    `gorm:"type:int"`
-	ModifiedUTC             string `gorm:"size:100"`
-	Name                    string `gorm:"size:100"`
-	NetworkAndTestNodeName  string `gorm:"size:150"`
-	NetworkName             string `gorm:"size:100"`
-	NoNumberName            string `gorm:"size:100"`
-	NoOfChannels            int    `gorm:"type:int"`
-	PLMN                    string `gorm:"size:100"`
-	PhoneNumber             string `gorm:"type:text"`
-	PhoneNumberFirstPart    string `gorm:"size:100"`
-	PhoneNumberIsEncrypted  bool   `gorm:"type:boolean"`
-	ProbeContainerUID       string `gorm:"size:150"`
-	RTDThreshold            string `gorm:"size:100"`
-	TestNodeDirectoryID     int    `gorm:"type:int"`
-	TestNodeDirectoryName   string `gorm:"size:100"`
-	TestNodeID              int    `gorm:"type:int"`
-	TestNodeUID             string `gorm:"size:150"`
-}
-
-func (assureNodesCapabilities) TableName() string {
-	return schemaPG + "CallingSys_assure_nodes_capabilities"
-}
-
-type assureNodesCapabilities struct {
-	AAPoPID          int    `gorm:"type:int"`
-	TestTypeName     string `gorm:"size:100"`
-	DestinationIntID int    `gorm:"type:int"`
-	DestinationID    string `gorm:"size:100"`
-	DestinationName  string `gorm:"size:100"`
-	TestNodeIntID    int    `gorm:"type:int"`
-	TestNodeIntUID   string `gorm:"size:100"`
-	TestNodeName     string `gorm:"size:100"`
-	NetworkName      string `gorm:"size:100"`
-	IsAParty         int    `gorm:"type:int"`
 }
