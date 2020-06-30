@@ -1,4 +1,3 @@
-// Package crypter
 package crypter
 
 import (
@@ -11,8 +10,7 @@ import (
 	"io"
 )
 
-// Encrypt function. It accepts the secret key and the text to be encrypted.
-// Returns a set of bytes.
+// Encrypt ...
 func Encrypt(key, text []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -29,8 +27,7 @@ func Encrypt(key, text []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-// Decrypt function. Accepts a private key and a set of bytes in string format.
-// Returns the decrypted text.
+// Decrypt ...
 func Decrypt(key []byte, text string) (string, error) {
 	ciphertext, _ := hex.DecodeString(text)
 	block, err := aes.NewCipher(key)

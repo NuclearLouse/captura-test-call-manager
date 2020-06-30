@@ -1,7 +1,3 @@
-// tools.go
-//
-// The file contains auxiliary functions that are necessary for the operation of all test systems.
-//
 package main
 
 import (
@@ -101,10 +97,6 @@ func execCommand(com string) ([]byte, error) {
 	return out, nil
 }
 
-// The function draws the waveform of the wav file.
-// A png file will be created, a vertical line will be drawn in it at the given x coordinate,
-// then the png file will be decoded in bmp. The file will be read in a slice of bytes,
-// and all auxiliary files wav, png, bmp will be deleted.
 func waveFormImage(nameFile string, x int) ([]byte, []byte, error) {
 	pathWavFile := srvTmpFolder + nameFile + ".wav"
 	pathPngFile := srvTmpFolder + nameFile + ".png"
@@ -120,7 +112,6 @@ func waveFormImage(nameFile string, x int) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	// drawing a vertical red line indicating the beginning of the answer
 	if x != 0 {
 		if err := drawVLine(pathPngFile, x); err != nil {
 			return nil, nil, err
@@ -149,7 +140,6 @@ func waveFormImage(nameFile string, x int) ([]byte, []byte, error) {
 	return imgPNG, imgBMP, nil
 }
 
-// The function draws a vertical line in the given coordinate
 func drawVLine(pathPngFile string, x int) error {
 	filePNG, err := os.Open(pathPngFile)
 	if err != nil {
@@ -177,7 +167,6 @@ func drawVLine(pathPngFile string, x int) error {
 	return nil
 }
 
-// Function decodes png to bmp
 func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
 	filePNG, err := os.Open(pathPngFile)
 	if err != nil {
@@ -202,8 +191,7 @@ func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
 	return nil
 }
 
-// Function decoding any audio file from the specified codec (mp3 or amr) to any audio codec.
-// After that, the audio file is read in a slice of bytes, and the encoded file is deleted.
+
 func decodeAudio(nameFile, codecFrom, codecTo, remove string) ([]byte, error) {
 	fileSource := srvTmpFolder + nameFile + "." + codecFrom
 	fileResult := srvTmpFolder + nameFile + "." + codecTo
@@ -248,7 +236,6 @@ func contentMP3(nameFile string) ([]byte, error) {
 	return content, nil
 }
 
-// Function checks if the test system is active.
 func isEnabled(db *gorm.DB, name string) (callingSysSettings, error) {
 	var sys callingSysSettings
 	if err := db.Where(`"Enabled"='true' AND "SystemName"=?`, name).Find(&sys).Error; err != nil {
@@ -257,12 +244,10 @@ func isEnabled(db *gorm.DB, name string) (callingSysSettings, error) {
 	return sys, nil
 }
 
-// Function updating the address, username and password for the test system
 func updateAPI(db *gorm.DB, model interface{}, sys callingSysSettings) *gorm.DB {
 	return db.Model(model).Updates(map[string]interface{}{"url": sys.Address, "user": sys.AuthName, "pass": sys.AuthKey}).Take(model)
 }
 
-// The function adds a row to the CallingSys_TestResults table for the given call_id
 func (i callingSysTestResults) updateCallsInfo(db *gorm.DB, callID string) error {
 	if err := db.Model(&i).Where(`"CallID"=?`, callID).Updates(i).Error; err != nil {
 		return err
@@ -277,7 +262,6 @@ func (i testFilesWEB) insertWebInfo(db *gorm.DB) error {
 	return nil
 }
 
-// If the test does not provide an audio file, the function will add “empty” information
 func insertEmptyFiles(db *gorm.DB, callID string) error {
 	label := "C&V:test system didn't provide audio files"
 	callsinfo := callingSysTestResults{
@@ -292,7 +276,6 @@ func insertEmptyFiles(db *gorm.DB, callID string) error {
 	return nil
 }
 
-// The function draws a bmp label with the inscription that the test did not provide an audio file
 func labelEmptyBMP(label string) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, 500, 100))
 	for x := 0; x < 500; x++ {
@@ -314,11 +297,6 @@ func labelEmptyBMP(label string) []byte {
 	return buff.Bytes()
 }
 
-// CallsStatistics returns a structure for adding statistics to the PurchOppt table
-// For each test by its testID, I find the number of calls Count(&total),
-// find the end time of the last call MAX("CallComplete")
-// Counting the number of calls with a duration> 0,
-// and summarize the total duration of these calls
 func (po *purchOppt) callsStatistic(db *gorm.DB, testid string) {
 	var total, complete, sumcalls float64
 	var max time.Time
@@ -362,12 +340,10 @@ func (po *purchOppt) smsStatisticsAssure(db *gorm.DB, testid string) {
 	po.TestMinutes = 0
 }
 
-// The function updates the information in the Purch_Oppt table about the running test.
 func (po purchOppt) updateTestInfo(db *gorm.DB, id int) error {
 	return db.Model(&po).Where(`"RequestID"=?`, id).Update(po).Error
 }
 
-// The function updates the statistic information in the Purch_Oppt table for ended test.
 func (po purchOppt) updateStatistic(db *gorm.DB, id string) error {
 	return db.Model(&po).Where(`"TestingSystemRequestID"=?`, id).Update(po).Error
 }
@@ -386,8 +362,6 @@ func testCancel() purchOppt {
 	}
 }
 
-// The following three functions bring the response fields containing time to a common format
-// and type of time, since all systems represent time in different formats.
 func iTestParseTime(strTime string) time.Time {
 	var t time.Time
 	if strTime == "" {
@@ -457,11 +431,6 @@ func uncompressGZ(name string) error {
 	return nil
 }
 
-// The iTest system, in response to a request for test status,
-// returns xml with an incorrect node in the form of a number equal to test_id.
-// All Unmarshal functions in this case return with an error.
-// Therefore, we had to cut invalid lines. This problem could be solved with the help
-// of regular expressions, but this method seemed to me more readable.
 func ignoreWrongNode(resp io.ReadCloser) (io.Reader, error) {
 	scan := bufio.NewScanner(resp)
 	var i int
@@ -482,8 +451,6 @@ func ignoreWrongNode(resp io.ReadCloser) (io.Reader, error) {
 	return strings.NewReader(newResp), nil
 }
 
-// The iTest system returns its xml responses not in the standard
-// UTF-8 encoding, but in ISO-8859-1, so I had to use an CharsetReader function.
 func xmlNewDecoder(res *http.Response) *xml.Decoder {
 	decoder := xml.NewDecoder(res.Body)
 	decoder.Strict = false
@@ -506,7 +473,6 @@ func createFile(rc io.ReadCloser, nameFile string) error {
 	return nil
 }
 
-// The function concatenate two mp3 files ring and answer into one common file.
 func concatMP3files(callID string) error {
 	//call-20200203123456789-r.mp3 or call-20200203123456789.mp3
 	pathRing := srvTmpFolder + "call-" + callID + "-r.mp3"
@@ -528,10 +494,6 @@ func concatMP3files(callID string) error {
 	return nil
 }
 
-// The function calculates the vertical bar coordinate,
-// depending on the duration of the ring and answer audio files.
-// And it returns this coordinate as a duration in seconds
-// from the start of the call and as the number of pixels.
 func calcCoordinate(callID string) (float64, int, error) {
 	var files [2]string
 	files[0] = srvTmpFolder + "call-" + callID + "-r.mp3"
@@ -557,7 +519,6 @@ func callSyncRoutesFunction(db *gorm.DB, sysID int) error {
 }
 
 func callSyncDestsFunction(db *gorm.DB, sysID int) error {
-	// потом тут нужна будет заливка данных на систему Assure
 	query := `SELECT "Destinationid" destid, "Destination" dest, "Dialcode" code
     FROM mtcarrierdbret."Dest_Prot" 
     WHERE current_date >= "Validfrom" AND current_date < "Validuntil"

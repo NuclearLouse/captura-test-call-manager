@@ -1,9 +1,3 @@
-// tcm_itest.go
-//
-// The file contains the functions necessary for the operation of the "iTest" system.
-//
-// Must be present functions that satisfy the tester interface
-//
 package main
 
 import (

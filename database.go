@@ -22,7 +22,6 @@ func newDB(cfg *Config, pass string) (*gorm.DB, error) {
 	return db, nil
 }
 
-// DbConnString returns a string to connect to the database
 func dbConnString(cfg *Config, pass string) (cns string) {
 	var sslmode string
 	switch cfg.ConnectDB.SslMode {

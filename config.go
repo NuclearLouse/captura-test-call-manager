@@ -9,7 +9,7 @@ import (
 	"github.com/go-ini/ini"
 )
 
-//Config struct
+//Config ...
 type Config struct {
 	Application struct {
 		Ffmpeg              string `ini:"ffmpeg"`

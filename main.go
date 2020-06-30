@@ -5,11 +5,7 @@
 // iTest: http://www.i-test.net/
 // Assure: https://www.csgi.com/portfolio/csg-wholesale/assure/
 //
-//
-// The file contains the function necessary when you first start the program.
-// Which reads the config, creates service directories, connects to the database
-// and creates, if necessary, tables, sets global variables and starts the service itself.
-//
+
 package main
 
 import (
@@ -59,7 +55,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create dir for service temp files
 	if err := createDir(appPath + tmpDir); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
@@ -77,7 +72,6 @@ func main() {
 		log.Close()
 	}()
 
-	// setting global variables
 	srvTmpFolder = appPath + tmpDir + slash
 	setGlobalVars(cfg)
 
@@ -108,7 +102,6 @@ func main() {
 	waitForSignal()
 }
 
-// SetGlobalVars sets the environment variables necessary for work
 func setGlobalVars(cfg *Config) {
 	switch runtime.GOOS {
 	case "windows":

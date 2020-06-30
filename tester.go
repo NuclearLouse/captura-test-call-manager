@@ -1,9 +1,3 @@
-// tester.go
-//
-// The file contains an interface "tester" declaration that all test systems must satisfy.
-// For each active system that satisfies the interface, the functions necessary
-// for its operation are launched in separate threads.
-//
 package main
 
 import (
@@ -54,7 +48,6 @@ func runService(cfg *Config, db *gorm.DB) {
 	}
 }
 
-// The main function that works at a given interval and checks for new tests
 func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 	for {
 		if !api.checkAuth(db) {
@@ -62,6 +55,8 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 			sigChan <- syscall.SIGTERM
 		}
 		sysName := api.sysName(db)
+		// TODO: тут надо проверит сначала типы тестов, если Test_Type == -67, то запрос для SMS теста
+		// TestSystemCallType == "SMS"
 		// po="Purch_Oppt" | ps="Purch_Statuses"| ss="CallingSys_Settings"| rt="CallingSys_RouteList"
 		query := fmt.Sprintf(`SELECT po."Request_by_User",
 		po."RequestID",
@@ -96,7 +91,8 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 		var ft []foundTest
 		for rows.Next() {
 			var test foundTest
-			err := rows.Scan(&test.RequestByUser, //Request_by_User from Purch_Oppt
+			err := rows.Scan(
+				&test.RequestByUser, //Request_by_User from Purch_Oppt
 				&test.RequestID,              //RequestID from Purch_Oppt
 				&test.TestingSystemRequestID, //TestingSystemRequestID
 				&test.RequestState,           //RequestState
@@ -110,7 +106,8 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 				&test.SMSTemplate,
 				&test.SystemID,      //SystemID from CallingSys_Settings
 				&test.SystemName,    //SystemName from CallingSys_Settings
-				&test.TestType)      //TestSystemCallType from Purch_Statuses
+				&test.TestType,
+				)      //TestSystemCallType from Purch_Statuses
 			if err != nil {
 				log.Errorf(10, "Could not add individual tests to the list of tests found for system %s|%v", sysName, err)
 				if err := testFail(err).updateTestInfo(db, test.RequestID); err != nil {
@@ -160,7 +157,6 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 	}
 }
 
-//Function that works at a specified interval and removes old tests
 func checkOldTests(cfg *Config, db *gorm.DB) {
 	for {
 		log.Info("Start function delete old test info")
@@ -173,8 +169,6 @@ func checkOldTests(cfg *Config, db *gorm.DB) {
 		}
 		log.Infof("Next delete old tests info after %d hours", cfg.Application.IntervalDeleteTests)
 
-		// For the sake of variety, I decided to try using a timer rather than the Sleep function
-		timer := time.NewTimer(time.Duration(cfg.Application.IntervalDeleteTests) * time.Hour)
-		<-timer.C
+		<- time.NewTimer(time.Duration(cfg.Application.IntervalDeleteTests) * time.Hour).C
 	}
 }

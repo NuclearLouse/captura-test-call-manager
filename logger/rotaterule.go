@@ -18,11 +18,13 @@ const (
 	minutelyRotateFormat = "20060102T15-04"
 )
 
+// RotateRule ...
 type RotateRule struct {
 	rotateType int
 	rotateTime string
 }
 
+// NewRotateRule ...
 func NewRotateRule(rotateType int) *RotateRule {
 	return &RotateRule{
 		rotateType: rotateType,
@@ -30,10 +32,12 @@ func NewRotateRule(rotateType int) *RotateRule {
 	}
 }
 
+// ShallRotate ...
 func (rr *RotateRule) ShallRotate() bool {
 	return rr.rotateTime != getFormatDate(rr.rotateType) && len(rr.rotateTime) > 0
 }
 
+// SetRotateTime ...
 func (rr *RotateRule) SetRotateTime() {
 	rr.rotateTime = getFormatDate(rr.rotateType)
 }

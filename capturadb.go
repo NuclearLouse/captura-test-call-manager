@@ -1,7 +1,3 @@
-// capturadb.go
-//
-// The file contains the structures that are needed to work with Captura database tables.
-//
 package main
 
 import (

@@ -18,8 +18,8 @@ const (
 	defaultDirectoryMode = 0755
 )
 
-type (
-	RotateLogger struct {
+// RotateLogger ...
+type RotateLogger struct {
 		filename       string
 		backupFilename string
 		level          Level
@@ -29,7 +29,7 @@ type (
 		done           chan bool
 		waitGroup      sync.WaitGroup
 	}
-)
+
 
 func newFileName(filename string, rotateType int) string {
 	absPath := path.Dir(filename) + "/"
@@ -37,6 +37,7 @@ func newFileName(filename string, rotateType int) string {
 	return fmt.Sprintf("%s%s_%s.log", absPath, f[0], getFormatDate(rotateType))
 }
 
+// NewRotateLogger ...
 func NewRotateLogger(filename string, level Level, rotateType int) (*RotateLogger, error) {
 	f := fmt.Sprintf("%s_%s.log", filename, getFormatDate(rotateType))
 	l := &RotateLogger{
@@ -137,7 +138,6 @@ func (rl *RotateLogger) Write(content []byte) (int, error) {
 		}
 
 	}
-	return 0, nil
 }
 
 func (rl *RotateLogger) write(content []byte) {
@@ -153,14 +153,17 @@ func (rl *RotateLogger) write(content []byte) {
 	}
 }
 
+// SetLevel ...
 func (rl *RotateLogger) SetLevel(level Level) {
 	rl.level = level
 }
 
+// GetLevel ...
 func (rl *RotateLogger) GetLevel() Level {
 	return rl.level
 }
 
+// Close ...
 func (rl *RotateLogger) Close() error {
 	close(rl.done)
 	close(rl.msg)

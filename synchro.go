@@ -1,8 +1,3 @@
-// syncro.go
-//
-// The file contains data synchronization functions
-// between clients using test systems and Captura.
-//
 package main
 
 import (

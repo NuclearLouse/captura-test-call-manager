@@ -1,9 +1,3 @@
-// tcm_assure.go
-//
-// The file contains the functions necessary for the operation of the "Assure" system.
-//
-// Must be present functions that satisfy the tester interface
-//
 package main
 
 import (

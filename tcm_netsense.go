@@ -1,9 +1,3 @@
-// tcm_netsense.go
-//
-// The file contains the basic functions necessary for the operation of the "Netsense" system.
-//
-// Must be present functions that satisfy the tester interface
-//
 package main
 
 import (
