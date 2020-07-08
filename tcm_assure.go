@@ -85,8 +85,8 @@ func (assureAPI) newTestSMS(nit foundTest) testSetSMS {
 		NoOfExecutions: nit.TestCalls,
 		TestSetItems: []batchSMS{
 			{
-				SMSRouteID:      nit.TestSysRouteID, // нужен route_id для SMS
-				DestinationID:   nit.DestinationID,  // нужен destination_id для SMS
+				SMSRouteID:      nit.TestSysRouteID, 
+				DestinationID:   nit.DestinationID,  
 				SMSTemplateName: nit.SMSTemplate,
 			},
 		},

@@ -144,6 +144,18 @@ AS $function$
 $function$
 ;
 ---------------------------------------------------------------------------------------------------------
+-- Получение routeID
+CREATE OR REPLACE FUNCTION web_backend__routing.f_callingsys_supplier_route_get(i_supplierid integer)
+ RETURNS TABLE(routeid integer, routename character varying)
+ LANGUAGE sql
+AS $function$
+	SELECT "RouteID", "Remote_Route_Name" 
+		FROM mtcarrierdbret."CallingSys_RouteList" 
+		WHERE "Captura_CarrierID" = i_supplierid
+		ORDER BY 2;
+$function$
+;
+---------------------------------------------------------------------------------------------------------
 --Спсиок доступных направлений, в зависимости от тестовой системы. Для отображения в выпадающем списке Destination
 CREATE OR REPLACE FUNCTION web_backend__routing.f_callingsys__lp_available_destinations(i_routingtype integer)
  RETURNS TABLE(destid integer, destname character varying)
@@ -167,6 +179,24 @@ END;
 $function$
 ;
 ---------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION mtcarrierdbret.f_callingsys_sync_assure_mada_sms_trunks_get()
+ RETURNS TABLE(capt_carrier character varying, capt_carrierid integer, capt_trunk character varying, assure_carrier character varying, assure_trunk character varying, assure_routeid integer)
+ LANGUAGE sql
+AS $function$
+	-- Captura <-> Assure matching
+	WITH capt_routes AS (
+		-- !!have to be replaced on production with OpenMind_Suppliers table!!! ----
+		SELECT regexp_replace(trunk_out, '(^V_|^CB_V_|_SMPP)', '', 'gi') trunk, trunk_out, carrier, carrier_id FROM tmp_mada_sms_supplier )	
+	
+	SELECT t2.carrier, t2.carrier_id, trunk_out,
+			t1.name assure_carrier, t1.carrier assure_trunk, t1.sms_route_id
+		FROM capt_routes t2
+		LEFT JOIN  mtcarrierdbret."CallingSys_assure_sms_routes" t1 ON trunk iLike name
+		--WHERE t1.name IS NULL
+		ORDER BY 2;
+$function$
+;
+---------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION web_backend__routing.f_callingsys__lp_sms_templates()
 RETURNS TABLE(template_id integer, template_name character varying)
 LANGUAGE plpgsql
@@ -175,5 +205,123 @@ BEGIN
 	RETURN QUERY
 				SELECT sms_template_id, "name" FROM mtcarrierdbret."CallingSys_assure_sms_templates";
 END;
+$function$
+;
+---------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION web_backend__routing.f_callingsys_request_sms_list_get()
+ RETURNS TABLE(reqid integer, stateid integer, statename character varying, reqname character varying, testtype character varying, destname character varying, supplier character varying, username character varying, req_dt timestamp without time zone, start_dt timestamp without time zone, end_dt timestamp without time zone, comp_calls bigint, incomp_calls bigint, reqcomment text, reqresult character varying, callingsys_id character varying)
+ LANGUAGE sql
+AS $function$
+	SELECT
+			"RequestID" reqid,
+			req.id, /*"RequestState" stateid,*/
+			req.status statename,
+			"RequestName" reqname,
+			lps."StatusName" testtype,
+			"Destination" destname,
+			"Supplier" supplier,
+			lpur."Nachname" as username,
+			"Request_Date_Time" req_dt,
+			"Tested_From" start_dt,
+			"Tested_Until" end_dt,
+			tr.succ suc_calls,
+			COALESCE(tr.failed, "Test_Calls") failed_calls,
+			"Test_Comment" reqcomment,
+			"Test_Result" reqresult,
+			"TestingSystemRequestID" callingsys_id
+		FROM mtcarrierdbret."Purch_Oppt" r 
+		JOIN web_backend__routing.v_callingsys_request_states_lp req ON req.id	=	CASE 
+																						WHEN "RequestState" = 1 THEN 1
+																						WHEN ("RequestState" = 2 AND r."Tested_Until" IS NULL) THEN 2
+																						WHEN ("RequestState" = 2 AND r."Tested_Until" IS NOT NULL) THEN 3
+																						WHEN "RequestState" = 3 THEN 4 
+																					END 
+		LEFT JOIN mtcarrierdbret."Mitarb" lpur ON lpur."Personid" = r."Request_by_User"
+		LEFT JOIN mtcarrierdbret."CallingSys_RouteList" lpr ON lpr."RouteID" = r."CallingSys_RouteID"
+		LEFT JOIN mtcarrierdbret."Purch_Statuses" lps ON lps."StatusID" = r."Test_Type"
+		LEFT JOIN (SELECT test_batch_id callingsysid, COUNT(*) FILTER (WHERE ui_test_status_display = 'Successful') succ, COUNT(*) FILTER (WHERE ui_test_status_display = 'Failed') failed
+					FROM mtcarrierdbret."CallingSys_TestResultsAssureSMS" 
+				   	GROUP BY test_batch_id) tr ON tr.callingsysid = "TestingSystemRequestID"
+		ORDER BY "RequestID" DESC;
+$function$
+;
+---------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION web_backend__routing.f_callingsys_request_sms_get(i_requestid integer)
+ RETURNS TABLE(reqname character varying, network character varying, supplier character varying, route character varying, date timestamp without time zone, senttime timestamp without time zone, result character varying, status character varying)
+ LANGUAGE sql
+AS $function$
+	SELECT
+		po."RequestName" reqname,
+		r.network network,
+		r.supplier supplier,
+		r.route route,
+		po."Request_Date_Time" date
+		r.sent_time senttime,
+		r.result result,
+		r.ui_test_status_display status
+	FROM mtcarrierdbret."CallingSys_TestResultsAssureSMS" r
+		JOIN mtcarrierdbret."Purch_Oppt" po ON po."TestingSystemRequestID" = r.test_batch_id
+	WHERE po."RequestID" = i_requestid
+	ORDER BY r.call_batch_item_id;
+$function$
+;
+---------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION web_backend__routing.f_callingsys_request_state_upd(i_requestid integer, i_stateid integer, i_resultid integer, t_comment text, OUT status character varying, OUT message character varying)
+ RETURNS record
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+	resname	varchar;
+	s_calllistid	varchar;
+	i_testingsys	integer;
+	i_testype		integer;
+	s_callbatch		varchar;
+BEGIN
+	status	:= 'FAILED';
+	message	:= 'Invalid Test Parameters';
+	IF i_requestid IS NULL THEN
+		message	:= 'RequestID is empty!';
+		RETURN;
+	END IF;	
+	message	:= '';
+	-- Leave resname as NULL when i_resultid IS NULL. In other case get a name
+	IF i_resultid IS NOT NULL THEN 
+		SELECT statusname INTO resname FROM web_backend__routing.f_callingsys__lp_test_results(i_resultid);
+	END IF;
+	-- REMOVE TEST RESULTS
+	IF i_stateid <= 2 THEN 
+		SELECT "CallID", "TestSystem", "Test_Type", "TestingSystemRequestID" 
+		INTO s_calllistid, i_testingsys, i_testype, s_callbatch
+			FROM mtcarrierdbret."Purch_Oppt" WHERE "RequestID" = i_requestid; 
+			 
+		-- Delete pictures
+		DELETE FROM mtcarrierdbret."CallingSys_testfiles_web"
+			WHERE callid = s_calllistid AND testsystem = i_testingsys;
+
+		-- Delete test calls
+		IF i_testingsys = 3 AND i_testype IN (-67) THEN
+			-- ASSURE SMS
+			DELETE FROM mtcarrierdbret."CallingSys_TestResultsAssureSMS"
+				WHERE test_batch_id = s_callbatch;		
+		ELSE
+			DELETE FROM mtcarrierdbret."CallingSys_TestResults"
+				WHERE "CallListID" = s_calllistid;	
+		END IF;
+	END IF;
+	
+	UPDATE mtcarrierdbret."Purch_Oppt" SET 
+			-- RESET End Timestamp WHEN NEEDED
+			"TestingSystemRequestID"	= CASE WHEN i_stateid = 1 THEN NULL ELSE "TestingSystemRequestID" END,
+			"Tested_Until"	= CASE WHEN i_stateid <= 2 THEN NULL ELSE COALESCE("Tested_Until", CURRENT_TIMESTAMP) END,
+			"Tested_From"	= CASE WHEN i_stateid = 1 THEN NULL ELSE "Tested_From" END,  
+			"RequestState"	= CASE WHEN i_stateid > 2 THEN i_stateid -1 ELSE i_stateid END,
+			"Test_Result"	= resname,
+			"Test_Comment"	= t_comment
+		WHERE "RequestID" = i_requestid;
+	GET DIAGNOSTICS message = ROW_COUNT;
+		
+	message	:= 'Request updated: ' || message;
+	status	:= 'OK';		
+END
 $function$
 ;
