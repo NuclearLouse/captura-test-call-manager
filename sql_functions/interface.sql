@@ -196,6 +196,9 @@ AS $function$
 		ORDER BY 2;
 $function$
 ;
+
+-- insert into mtcarrierdbret."CallingSys_RouteList" ("CallingSystemID","Captura_CarrierID","Remote_Route_Name","Remote_Route_ID") 
+-- select (3,capt_carrierid,assure_carrier,assure_routeid) from mtcarrierdbret.f_callingsys_sync_assure_mada_sms_trunks_get();
 ---------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION web_backend__routing.f_callingsys__lp_sms_templates()
 RETURNS TABLE(template_id integer, template_name character varying)
@@ -325,3 +328,86 @@ BEGIN
 END
 $function$
 ;
+---------------------------------------------------------------------------------------------------------
+-- New test request
+SELECT po."Request_by_User",
+		po."RequestID",
+		COALESCE(po."TestingSystemRequestID",'') "TestingSystemRequestID",
+		po."RequestState", 
+		rt."Remote_Route_ID",
+		po."SupplierID",
+		po."Test_Calls",
+		COALESCE(po."Test_Comment",'') "Test_Comment",
+		COALESCE(po."Custom_BNumbers",'') "Custom_BNumbers",
+		po."Destination",
+		COALESCE(dl.remote_destination_id, -1) remote_destination_id,
+		COALESCE(ast.name,'') sms_template_name,
+		ss."SystemID",
+		ss."SystemName",
+		ps."TestSystemCallType"
+		FROM mtcarrierdbret."Purch_Oppt" po
+		JOIN mtcarrierdbret."Purch_Statuses" ps ON po."Test_Type"=ps."StatusID"
+		JOIN mtcarrierdbret."CallingSys_DestinationList" dl ON po."DestinationID"=dl.captura_destination_id AND dl.callingsys_id=ps."TestSystem"
+		JOIN mtcarrierdbret."CallingSys_Settings" ss ON ss."SystemID"=ps."TestSystem"
+		JOIN mtcarrierdbret."CallingSys_assure_sms_templates" ast ON ast.sms_template_id = po.sms_template_id
+		LEFT JOIN mtcarrierdbret."CallingSys_RouteList" rt ON po."CallingSys_RouteID" = rt."RouteID" 
+		WHERE po."Tested_Until" IS NULL 
+		AND (po."TestingSystemRequestID" IS NULL OR po."TestingSystemRequestID"<>'-1') 
+		AND ss."SystemName"='Assure' AND po."RequestState" < 3;
+---------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION mtcarrierdbret.f_callingsys_sync_assure_mada_sms_trunks_get(
+	)
+    RETURNS TABLE(capt_carrier character varying, capt_carrierid integer, capt_trunk character varying, assure_carrier character varying, assure_trunk character varying, assure_routeid integer) 
+    LANGUAGE 'sql'
+
+    COST 100
+    VOLATILE 
+    ROWS 1000
+AS $BODY$
+	-- Captura <-> Assure matching
+	WITH capt_routes AS (
+		-- !!have to be replaced on production with OpenMind_Suppliers table!!! ----
+		SELECT regexp_replace("TrunkOut", '(^V_|^CB_V_|_SMPP)', '', 'gi') trunk, "TrunkOut", "Carrier", "CarrierID" FROM mtcarrierdbret."OpenMind_Supplier")	
+	
+	SELECT t2."Carrier", t2."CarrierID", "TrunkOut",
+			t1.name assure_carrier, t1.carrier assure_trunk, t1.sms_route_id
+		FROM capt_routes t2
+		LEFT JOIN  mtcarrierdbret."CallingSys_assure_sms_routes" t1 ON trunk iLike name
+		--WHERE t1.name IS NULL
+		ORDER BY 2;
+$BODY$;
+
+ALTER FUNCTION mtcarrierdbret.f_callingsys_sync_assure_mada_sms_trunks_get()
+    OWNER TO ocuconnection;
+
+---------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION web_backend__routing.f_callingsys__lp_available_destinations(
+    i_routingtype integer)
+    RETURNS TABLE(destid integer, destname character varying)
+   LANGUAGE 'plpgsql'
+
+   COST 100
+   VOLATILE
+   ROWS 1000
+AS $BODY$
+BEGIN
+    IF i_routingtype IS NULL THEN
+        RETURN QUERY
+            SELECT DISTINCT t."Destinationid", t."Destination"
+                FROM mtcarrierdbret."Route_MasterDest_RType" t
+				JOIN mtcarrierdbret."CallingSys_DestinationList" t2 ON t."Destinationid" = t2.captura_destination_id
+                WHERE current_date >= t."Validon" AND current_date < t."Validuntil" AND t2.remote_destination_id NOTNULL
+                ORDER BY 2;    
+    ELSE
+        RETURN QUERY
+            SELECT t."Destinationid", t."Destination"
+                FROM mtcarrierdbret."Route_MasterDest_RType" t
+				JOIN mtcarrierdbret."CallingSys_DestinationList" t2 ON t."Destinationid" = t2.captura_destination_id
+                WHERE current_date >= t."Validon" AND current_date < t."Validuntil" AND t."RType" = i_routingtype AND t2.remote_destination_id NOTNULL
+                ORDER BY 2;
+    END IF;
+END;
+$BODY$;
+
+ALTER FUNCTION web_backend__routing.f_callingsys__lp_available_destinations(integer)
+   OWNER TO web_backend;

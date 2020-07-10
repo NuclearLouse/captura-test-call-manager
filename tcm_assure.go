@@ -195,7 +195,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 			//**************** 1 ********************
 			// По ID теста
 			// https://h-54-246-182-248.csg-assure.com/api/TestBatchResults/61825
-			req = fmt.Sprintf("%s%s%d", api.URL, api.TestResults, result.TestBatchID)
+			req = fmt.Sprintf("%s%d", api.TestResults, result.TestBatchID)
 
 			//**************** 2 ********************
 			// По дате
@@ -1051,7 +1051,7 @@ type batchResultSMS struct {
 	RecTime                   string      `json:"Rec. Time"`
 	SMSCRecTime               string      `json:"SMSC Rec. Time"`
 	DelRepTime                string      `json:"Del. Rep. Time"`
-	MessageID                 int         `json:"Message Id"`
+	MessageID                 string         `json:"Message Id"`
 	Template                  string      `json:"Template"`
 	SMS                       string      `json:"SMS"`
 	DeliveryDetails           string      `json:"Delivery Details"`
@@ -1137,7 +1137,7 @@ type assureSMSResult struct {
 	RecTime                   time.Time
 	SMSCRecTime               time.Time
 	DelRepTime                time.Time
-	MessageID                 int
+	MessageID                 string
 	Template                  string
 	SMS                       string
 	DeliveryDetails           string
@@ -1170,6 +1170,7 @@ type assureSMSResult struct {
 	SMSResultIDS              int
 	PoPIDS                    int
 	AdapterInstanceIDS        int
+	AdapterInstanceNameS      string
 	SubmitSMSResponseTime     time.Time
 	StatusUpdateCode          string
 	StatusUpdateTime          time.Time
