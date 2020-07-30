@@ -19,9 +19,13 @@ var writer *RotateLogger
 
 type errCode int
 
+// func (ec errCode) String() string {
+// 	c := fmt.Sprintf("%d", ec)
+// 	return strings.Repeat("0", 5-len(c)) + c
+// }
+
 func (ec errCode) String() string {
-	c := fmt.Sprintf("%d", ec)
-	return strings.Repeat("0", 5-len(c)) + c
+	return fmt.Sprintf("%05d", ec)
 }
 
 func Trace(v ...interface{}) {
@@ -57,29 +61,29 @@ func Warnf(format string, v ...interface{}) {
 }
 
 func Error(ec errCode, v ...interface{}) {
-	output(LevelError, fmt.Sprintf("%s", ec), fmt.Sprintln(v...))
+	output(LevelError, ec.String(), fmt.Sprintln(v...))
 }
 
 func Errorf(ec errCode, format string, v ...interface{}) {
-	output(LevelError, fmt.Sprintf("%s", ec), fmt.Sprintln(fmt.Sprintf(format, v...)))
+	output(LevelError, ec.String(), fmt.Sprintln(fmt.Sprintf(format, v...)))
 }
 
 func Panic(ec errCode, v ...interface{}) {
-	output(LevelPanic, fmt.Sprintf("%s", ec), fmt.Sprintln(v...))
+	output(LevelPanic, ec.String(), fmt.Sprintln(v...))
 }
 
 func Panicf(ec errCode, format string, v ...interface{}) {
-	output(LevelPanic, fmt.Sprintf("%s", ec), fmt.Sprintln(fmt.Sprintf(format, v...)))
+	output(LevelPanic, ec.String(), fmt.Sprintln(fmt.Sprintf(format, v...)))
 }
 
 func Fatal(ec errCode, v ...interface{}) {
-	output(LevelFatal, fmt.Sprintf("%s", ec), fmt.Sprintln(v...))
+	output(LevelFatal, ec.String(), fmt.Sprintln(v...))
 	writer.Close()
 	os.Exit(1)
 }
 
 func Fatalf(ec errCode, format string, v ...interface{}) {
-	output(LevelFatal, fmt.Sprintf("%s", ec), fmt.Sprintln(fmt.Sprintf(format, v...)))
+	output(LevelFatal, ec.String(), fmt.Sprintln(fmt.Sprintf(format, v...)))
 	writer.Close()
 	os.Exit(1)
 }

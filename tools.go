@@ -191,7 +191,6 @@ func encodePNGtoBMP(pathPngFile, pathBmpFile string) error {
 	return nil
 }
 
-
 func decodeAudio(nameFile, codecFrom, codecTo, remove string) ([]byte, error) {
 	fileSource := srvTmpFolder + nameFile + "." + codecFrom
 	fileResult := srvTmpFolder + nameFile + "." + codecTo
@@ -313,7 +312,7 @@ func (po *purchOppt) callsStatistic(db *gorm.DB, testid string) {
 		Row().
 		Scan(&sumcalls)
 
-	po.RequestState = 2
+	po.RequestState = 3
 	po.TestedUntil = max
 	po.TestASR = 100 * complete / total
 	po.TestACD = sumcalls / complete / 60
@@ -330,10 +329,10 @@ func (po *purchOppt) smsStatisticsAssure(db *gorm.DB, testid string) {
 	var max time.Time
 	db.Model(&assureSMSResult{}).
 		Where("test_batch_id", testid).
-		Select("MAX(del_time_limit)").
+		Select("MAX(modified)").
 		Row().
 		Scan(&max)
-	po.RequestState = 2
+	po.RequestState = 3
 	po.TestedUntil = max
 	po.TestASR = 0
 	po.TestACD = 0
@@ -352,13 +351,16 @@ func testFail(err error) purchOppt {
 	return purchOppt{
 		TestingSystemRequestID: "-1",
 		TestedUntil:            time.Now(),
-		TestComment:            err.Error()}
+		TestComment:            err.Error(),
+		RequestState:           3,
+	}
 }
 
 func testCancel() purchOppt {
 	return purchOppt{
-		TestedUntil: time.Now(),
-		TestResult:  "Cancelled",
+		TestedUntil:  time.Now(),
+		TestResult:   "Cancelled",
+		RequestState: 3,
 	}
 }
 

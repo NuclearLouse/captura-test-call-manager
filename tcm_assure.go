@@ -85,8 +85,8 @@ func (assureAPI) newTestSMS(nit foundTest) testSetSMS {
 		NoOfExecutions: nit.TestCalls,
 		TestSetItems: []batchSMS{
 			{
-				SMSRouteID:      nit.TestSysRouteID, 
-				DestinationID:   nit.DestinationID,  
+				SMSRouteID:      nit.TestSysRouteID,
+				DestinationID:   nit.DestinationID,
 				SMSTemplateName: nit.SMSTemplate,
 			},
 		},
@@ -109,6 +109,19 @@ func (api assureAPI) buildNewTests(nit foundTest) (interface{}, error) {
 
 	return api.newTestDestination(nit), nil
 }
+
+// testID := "1256789"
+// testDetailsWithAudio := "Test Details : CLI - FAS - VQ - with audio"	
+// val := url.Values{}	
+// val.Set("Par1", testID)
+// val.Set("code", testDetailsWithAudio)
+// u := url.URL{
+// 	Scheme: "https",
+// 	Host: "h-54-246-182-248.csg-assure.com",
+// 	Path: "api/QueryResults2",
+// 	RawQuery: val.Encode(),
+// }
+// fmt.Println(u.String())
 
 func (api assureAPI) newRequest(method, request string, body []byte) (*http.Response, error) {
 	log.Debugf("Request %s:%s", method, api.URL+request)
@@ -255,7 +268,7 @@ func (api assureAPI) checkTestComplete(db *gorm.DB, lt foundTest) error {
 
 	case 0, 5, 6, 7: // Unknown, Cancelling, Cancelled, Exception
 		log.Info("Cancelled test for test_ID", testid)
-		ti.RequestState = 2
+		ti.RequestState = 3
 		ti.TestedUntil = time.Now()
 		ti.TestComment = "The test ended with status:" + result.String()
 	}
@@ -531,7 +544,7 @@ func insertsPrepareJSON(db *gorm.DB, req string, res *http.Response) error {
 	switch req {
 	case "assure_routes":
 		var route assureRoute // table's struct
-		var routes routes      // JSON's struct
+		var routes routes     // JSON's struct
 		if err := db.Delete(assureRoute{}).Error; err != nil {
 			return err
 		}
@@ -766,7 +779,6 @@ type assureRoute struct {
 	SwitchID               int         `json:"SwitchID" gorm:"type:int"`
 	SwitchName             string      `json:"SwitchName" gorm:"type:varchar(100)"`
 }
-
 
 type nodes struct {
 	QueryResult1 []assureNodes
@@ -1051,7 +1063,7 @@ type batchResultSMS struct {
 	RecTime                   string      `json:"Rec. Time"`
 	SMSCRecTime               string      `json:"SMSC Rec. Time"`
 	DelRepTime                string      `json:"Del. Rep. Time"`
-	MessageID                 string         `json:"Message Id"`
+	MessageID                 string      `json:"Message Id"`
 	Template                  string      `json:"Template"`
 	SMS                       string      `json:"SMS"`
 	DeliveryDetails           string      `json:"Delivery Details"`

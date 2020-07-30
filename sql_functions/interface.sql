@@ -355,8 +355,7 @@ SELECT po."Request_by_User",
 		AND (po."TestingSystemRequestID" IS NULL OR po."TestingSystemRequestID"<>'-1') 
 		AND ss."SystemName"='Assure' AND po."RequestState" < 3;
 ---------------------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION mtcarrierdbret.f_callingsys_sync_assure_mada_sms_trunks_get(
-	)
+CREATE OR REPLACE FUNCTION mtcarrierdbret.f_callingsys_sync_assure_mada_sms_trunks_get()
     RETURNS TABLE(capt_carrier character varying, capt_carrierid integer, capt_trunk character varying, assure_carrier character varying, assure_trunk character varying, assure_routeid integer) 
     LANGUAGE 'sql'
 
@@ -411,3 +410,76 @@ $BODY$;
 
 ALTER FUNCTION web_backend__routing.f_callingsys__lp_available_destinations(integer)
    OWNER TO web_backend;
+
+---------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION web_backend__routing.f_callingsys__lp_captura_destinations()
+RETURNS TABLE(
+	dest_id integer,
+	dest_name character varying,
+	sys_dest_id integer,
+	sys_dest_name character varying,
+	mapped boolean
+)
+LANGUAGE plpgsql
+AS $function$
+BEGIN
+	RETURN QUERY
+				SELECT DISTINCT dp."Destinationid" , dp."Destination", csdl.remote_destination_id, csdl.remote_destination, csdl.remote_destination_id IS NOT NULL 
+				FROM mtcarrierdbret."Dest_Prot" dp 
+				LEFT OUTER JOIN mtcarrierdbret."CallingSys_DestinationList" csdl ON csdl.captura_destination_id = dp."Destinationid" 
+				-- where csdl.callingsys_id =3
+				ORDER BY dp."Destination" ASC; 
+
+END;
+$function$;
+;
+---------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION web_backend__routing.f_callingsys__lp_assure_destinations()
+RETURNS TABLE(
+	country_id integer,
+	country_name character varying,
+	dest_id integer,
+	dest_name character varying
+)
+LANGUAGE plpgsql
+AS $function$
+BEGIN
+	RETURN QUERY
+				select csad.country_id , csad.country_name, csad.destination_id, csad."name" 
+				from mtcarrierdbret."CallingSys_assure_destinations" csad 
+				ORDER BY csad."name" ASC;
+END;
+$function$;
+---------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION web_backend__routing.f_callingsys_mapping_captura_testsystem_destinations(
+	in_callingsys_id integer, 
+	in_remote_dest_id integer, 
+	in_remote_dest_name character varying,
+	in_captura_dest_id integer[],
+	in_captura_dest_name character varying[],
+	OUT status character varying, 
+	OUT message character varying)
+RETURNS record
+LANGUAGE plpgsql
+AS $function$
+DECLARE i integer := 1;
+BEGIN
+    status	:= 'OK';
+	message	:= '';
+	WHILE i <= array_length(in_captura_dest_id,1) LOOP
+	BEGIN
+	INSERT INTO mtcarrierdbret."CallingSys_DestinationList"(callingsys_id,captura_destination,captura_destination_id,remote_destination,remote_destination_id)
+	VALUES(in_callingsys_id, in_captura_dest_name[i],in_captura_dest_id[i],in_remote_dest_name,in_remote_dest_id);
+    EXCEPTION WHEN unique_violation THEN
+		UPDATE mtcarrierdbret."CallingSys_DestinationList" SET remote_destination = in_remote_dest_name, remote_destination_id = in_remote_dest_id
+		WHERE captura_destination_id = in_captura_dest_id[i] AND callingsys_id = in_callingsys_id;
+	END;
+	i = i+1;
+	END LOOP;
+	GET DIAGNOSTICS message = ROW_COUNT;
+	IF message <> '0' THEN 	message	:= 'Destination mapped'; 
+	ELSE 					message	:= '';
+	END IF;
+END;
+$function$;
+---------------------------------------------------------------------------------------------------------

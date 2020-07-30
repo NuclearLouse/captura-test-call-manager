@@ -1,0 +1,2 @@
+select name, destination_id,captura_destination from  mtcarrierdbret."CallingSys_assure_destinations"
+join mtcarrierdbret."CallingSys_DestinationList" on captura_destination ilike regexp_replace(name, '-Mobile', '', 'i')  order by 1;

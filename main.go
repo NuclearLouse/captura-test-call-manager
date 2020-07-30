@@ -14,7 +14,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"syscall"
 
 	"captura_tcm/crypter"
@@ -60,11 +59,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	logPath := cfg.Logger.LogPath
-	if !strings.HasSuffix(logPath, "/") {
-		logPath = logPath + "/"
-	}
-	if err := log.Setup(logPath+logFile, cfg.Logger.LogLevel, cfg.Logger.Rotate); err != nil {
+	// logPath := cfg.Logger.LogPath
+	// if !strings.HasSuffix(logPath, "/") {
+	// 	logPath = logPath + "/"
+	// }
+
+	if err := log.Setup(
+		filepath.Join(cfg.Logger.LogPath, logFile),
+		cfg.Logger.LogLevel,
+		cfg.Logger.Rotate,
+	); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}

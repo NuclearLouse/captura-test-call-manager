@@ -55,9 +55,7 @@ func checkTestStatus(db *gorm.DB, api tester, interval int64) {
 			sigChan <- syscall.SIGTERM
 		}
 		sysName := api.sysName(db)
-		// TODO: тут надо проверит сначала типы тестов, если Test_Type == -67, то запрос для SMS теста
-		// TestSystemCallType == "SMS"
-		// po="Purch_Oppt" | ps="Purch_Statuses"| ss="CallingSys_Settings"| rt="CallingSys_RouteList"
+		
 		query := fmt.Sprintf(`SELECT po."Request_by_User",
 		po."RequestID",
 		COALESCE(po."TestingSystemRequestID",'') "TestingSystemRequestID",
